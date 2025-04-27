@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Homie</title>
+  <link rel="stylesheet" href="popup.css">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo-container">
+        <img src="icons/icon48.png" alt="Homie Logo" class="logo-image" border-radius="12px";>
+        <h1>Homie</h1>
+      </div>
+      <p class="subtitle">Your AI Property Assistant</p>
+    </div>
+    
+    <div id="loading" class="hidden">
+      <div class="loader-container">
+        <div class="loader"></div>
+        <div class="loader-house">
+          <img src="icons/icon16.png" alt="Homie" class="loader-icon" border-radius="12px">
+        </div>
+      </div>
+      <p>Analyzing property data...</p>
+    </div>
+
+    <div id="apiKeySection">
+      <div class="card">
+        <h2>OpenAI API Key</h2>
+        <div class="input-group">
+          <input type="password" id="apiKey" placeholder="Enter your OpenAI API key">
+          <button id="saveApiKey">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            Save
+          </button>
+        </div>
+        <p id="apiKeyMessage" class="message"></p>
+      </div>
+    </div>
+
+    <div id="propertyAnalysis" class="hidden">
+      <div class="header-actions">
+        <h2>Property Analysis</h2>
+        <button id="saveForCompareBtn" class="secondary-button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+          Save for Comparison
+        </button>
+      </div>
+      <div id="analysisResults"></div>
+    </div>
+
+    <div id="comparisonSection" class="hidden">
+      <div class="header-actions">
+        <h2>Property Comparison</h2>
+        <button id="clearSavedBtn" class="text-button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          Clear All
+        </button>
+      </div>
+      <p class="subtitle-small">Compare saved properties</p>
+      <div id="savedPropertiesList" class="saved-properties-list"></div>
+      <div class="comparison-actions">
+        <button id="comparePropertiesBtn" class="primary-button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+          Compare Properties
+        </button>
+      </div>
+      <div id="comparisonResults"></div>
+    </div>
+
+    <div id="error" class="hidden">
+      <div class="error-container">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        <p class="error-message">An error occurred. Please check if you are on a property page or try again later.</p>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="button-group">
+        <button id="analyzeButton" class="primary-button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+          Analyze Property
+        </button>
+        <button id="viewSavedBtn" class="secondary-button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+          Saved Properties
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html> 
