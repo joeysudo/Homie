@@ -15,6 +15,63 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
+// Flag to track if we should prevent popup closing
+let keepPopupOpen = false;
+
+// Helper function to open the extension in side panel
+function openInSidePanel(tabId) {
+  // Check if side panel is available (Chrome 114+)
+  if (chrome.sidePanel) {
+    // Open the side panel
+    chrome.sidePanel.open({ tabId }).catch(error => {
+      console.error('Error opening side panel:', error);
+      // Fallback to popup if side panel fails
+      chrome.action.openPopup();
+    });
+    return true;
+  }
+  return false;
+}
+
+// Listen for messages from popup
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'keepPopupOpen') {
+    keepPopupOpen = true;
+    // If this was triggered from a popup, try to reopen in side panel
+    if (sender.url.includes('popup.html') && sender.tab === undefined) {
+      chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        if (tabs.length > 0) {
+          // Try to open in side panel instead
+          const opened = openInSidePanel(tabs[0].id);
+          sendResponse({ success: opened });
+          
+          // If we opened in side panel, close the popup
+          if (opened) {
+            // We'll close indirectly by not keeping it open
+            keepPopupOpen = false;
+          }
+        }
+      });
+      return true; // Keep channel open for async response
+    }
+    sendResponse({ success: true });
+  } else if (message.action === 'closePopup') {
+    keepPopupOpen = false;
+    sendResponse({ success: true });
+  } else if (message.action === 'openSidePanel') {
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      if (tabs.length > 0) {
+        const opened = openInSidePanel(tabs[0].id);
+        sendResponse({ success: opened });
+      } else {
+        sendResponse({ success: false });
+      }
+    });
+    return true; // Keep channel open for async response
+  }
+  return true; // Keep the message channel open for async response
+});
+
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'analyze-property') {
@@ -27,8 +84,13 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       if (response && response.propertyData) {
         // Store the data temporarily
         chrome.storage.session.set({ 'currentPropertyData': response.propertyData }, () => {
-          // Open the popup
-          chrome.action.openPopup();
+          // Try to open in side panel first for persistence
+          const sidePanelOpened = openInSidePanel(tab.id);
+          
+          // Fall back to popup if side panel not available
+          if (!sidePanelOpened) {
+            chrome.action.openPopup();
+          }
         });
       }
     });

@@ -8,8 +8,59 @@ document.addEventListener('DOMContentLoaded', function() {
   const propertyAnalysisSection = document.getElementById('propertyAnalysis');
   const analysisResults = document.getElementById('analysisResults');
   const errorSection = document.getElementById('error');
+  const closePopupButton = document.getElementById('closePopup');
   
   const apiKeySection = document.getElementById('apiKeySection');
+  
+  // Detect if we're in a popup or side panel
+  const isInPopup = location.href.includes('popup.html') && !chrome.sidePanel;
+  const isInSidePanel = !!chrome.sidePanel;
+  
+  // Add class to the body for CSS styling based on view mode
+  document.body.classList.add(isInSidePanel ? 'side-panel-view' : 'popup-view');
+  
+  // Prevent the default popup closing behavior
+  if (isInPopup) {
+    try {
+      // Tell the background script to keep the popup open
+      chrome.runtime.sendMessage({action: 'keepPopupOpen'}, function(response) {
+        // If successful in side panel, we might redirect there
+        if (response && response.success && response.sidePanel) {
+          // Side panel was opened, we can close this popup
+          window.close();
+        }
+      });
+      
+      // Make popup responsive to prevent auto-closing on click outside
+      window.addEventListener('blur', function() {
+        // Focus back to the popup window to prevent closing
+        setTimeout(() => window.focus(), 100);
+      });
+      
+      // Set an interval to keep focus
+      setInterval(() => {
+        if (!document.hasFocus()) {
+          window.focus();
+        }
+      }, 500);
+    } catch (e) {
+      console.error('Error setting up popup persistence:', e);
+    }
+  }
+  
+  // Close button functionality
+  closePopupButton.addEventListener('click', function() {
+    // Tell the background script we're closing
+    chrome.runtime.sendMessage({action: 'closePopup'}, function(response) {
+      if (isInSidePanel) {
+        // In side panel, we should hide panel
+        chrome.sidePanel.close();
+      } else {
+        // In popup, just close window
+        window.close();
+      }
+    });
+  });
   
   // Comparison elements
   const saveForCompareBtn = document.getElementById('saveForCompareBtn');
