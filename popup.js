@@ -12,54 +12,41 @@ document.addEventListener('DOMContentLoaded', function() {
   
   const apiKeySection = document.getElementById('apiKeySection');
   
-  // Detect if we're in a popup or side panel
-  const isInPopup = location.href.includes('popup.html') && !chrome.sidePanel;
-  const isInSidePanel = !!chrome.sidePanel;
+  // Detect if we're in a popup or a separate window
+  const isInSeparateWindow = window.outerWidth > 500;
   
-  // Add class to the body for CSS styling based on view mode
-  document.body.classList.add(isInSidePanel ? 'side-panel-view' : 'popup-view');
-  
-  // Prevent the default popup closing behavior
-  if (isInPopup) {
-    try {
-      // Tell the background script to keep the popup open
-      chrome.runtime.sendMessage({action: 'keepPopupOpen'}, function(response) {
-        // If successful in side panel, we might redirect there
-        if (response && response.success && response.sidePanel) {
-          // Side panel was opened, we can close this popup
+  // Only show close button in separate window mode
+  if (isInSeparateWindow) {
+    closePopupButton.style.display = 'flex';
+  } else {
+    closePopupButton.style.display = 'none';
+    
+    // Add "open in window" button for regular popup mode
+    const headerDiv = document.querySelector('.header');
+    const openInWindowBtn = document.createElement('button');
+    openInWindowBtn.className = 'open-in-window-button';
+    openInWindowBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="7" y1="7" x2="17" y2="7"></line></svg>`;
+    openInWindowBtn.title = "Open in persistent window";
+    headerDiv.appendChild(openInWindowBtn);
+    
+    // Handle open in window click
+    openInWindowBtn.addEventListener('click', function() {
+      chrome.runtime.sendMessage({action: 'openInWindow'}, function(response) {
+        // Close this popup if the window opened successfully
+        if (response && response.success) {
           window.close();
         }
       });
-      
-      // Make popup responsive to prevent auto-closing on click outside
-      window.addEventListener('blur', function() {
-        // Focus back to the popup window to prevent closing
-        setTimeout(() => window.focus(), 100);
-      });
-      
-      // Set an interval to keep focus
-      setInterval(() => {
-        if (!document.hasFocus()) {
-          window.focus();
-        }
-      }, 500);
-    } catch (e) {
-      console.error('Error setting up popup persistence:', e);
-    }
+    });
   }
+  
+  // Make the close button more visible
+  closePopupButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
   
   // Close button functionality
   closePopupButton.addEventListener('click', function() {
-    // Tell the background script we're closing
-    chrome.runtime.sendMessage({action: 'closePopup'}, function(response) {
-      if (isInSidePanel) {
-        // In side panel, we should hide panel
-        chrome.sidePanel.close();
-      } else {
-        // In popup, just close window
-        window.close();
-      }
-    });
+    // Send message to close this window
+    chrome.runtime.sendMessage({action: 'closePopup'});
   });
   
   // Comparison elements
@@ -77,6 +64,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Set up modern UI elements and interactions
   setupModernUI();
+  
+  // Check if we were opened from a property analysis
+  chrome.runtime.sendMessage({action: 'getPropertyData'}, function(response) {
+    if (response && response.propertyData) {
+      // We have property data to analyze
+      currentPropertyData = response.propertyData;
+      
+      // Get API key and analyze property
+      chrome.storage.sync.get(['openaiApiKey'], function(result) {
+        if (result.openaiApiKey) {
+          analyzeProperty(currentPropertyData, result.openaiApiKey);
+        } else {
+          // Show API key section
+          apiKeySection.classList.remove('hidden');
+          apiKeyMessage.textContent = 'Please save your OpenAI API key first';
+          apiKeyMessage.classList.remove('success');
+        }
+      });
+    } else {
+      // Just show API key section
+      apiKeySection.classList.remove('hidden');
+    }
+  });
   
   // Load saved API key
   chrome.storage.sync.get(['openaiApiKey', 'savedProperties'], function(result) {
@@ -231,6 +241,11 @@ document.addEventListener('DOMContentLoaded', function() {
     chrome.storage.sync.set({ openaiApiKey: apiKey }, function() {
       apiKeyMessage.textContent = 'API key saved successfully!';
       apiKeyMessage.classList.add('success');
+      
+      // If we have property data waiting to be analyzed, do it now
+      if (currentPropertyData) {
+        analyzeProperty(currentPropertyData, apiKey);
+      }
     });
   });
 
@@ -258,11 +273,17 @@ document.addEventListener('DOMContentLoaded', function() {
       apiKeySection.classList.add('hidden');
       
       // Get current tab
-      chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      chrome.tabs.query({active: true, lastFocusedWindow: true}, function(tabs) {
+        if (!tabs || tabs.length === 0) {
+          loadingSection.classList.add('hidden');
+          errorSection.classList.remove('hidden');
+          return;
+        }
+        
         const currentTab = tabs[0];
         
         // Check if we're on realestate.com.au
-        if (!currentTab.url.includes('realestate.com.au')) {
+        if (!currentTab || !currentTab.url.includes('realestate.com.au')) {
           loadingSection.classList.add('hidden');
           errorSection.classList.remove('hidden');
           return;
@@ -279,7 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
               return;
             }
             
-            // Get analysis in English
+            // Get analysis
             analyzeProperty(response.propertyData, result.openaiApiKey);
           }
         );
@@ -917,14 +938,16 @@ Ensure your analysis is based on the provided data while supplementing with your
     document.querySelectorAll('.section-title').forEach(title => {
       title.addEventListener('click', function() {
         const content = this.nextElementSibling;
-        const isOpen = content.style.maxHeight;
+        const isExpanded = this.classList.contains('expanded');
         
         // Toggle the current section
-        if (isOpen) {
-          content.style.maxHeight = null;
+        if (isExpanded) {
+          content.style.display = 'none';
+          this.classList.remove('expanded');
           this.querySelector('.toggle-icon').textContent = '+';
         } else {
-          content.style.maxHeight = content.scrollHeight + 'px';
+          content.style.display = 'block';
+          this.classList.add('expanded');
           this.querySelector('.toggle-icon').textContent = '-';
         }
       });
@@ -966,35 +989,15 @@ Ensure your analysis is based on the provided data while supplementing with your
         section.style.transform = 'translateY(0)';
       }, 100 * index);
       
-      // Open the first section by default
-      if (index === 0) {
-        const content = section.querySelector('.section-content');
-        const toggle = section.querySelector('.toggle-icon');
-        if (content && toggle) {
-          content.style.maxHeight = content.scrollHeight + 'px';
-          content.classList.add('open');
-          toggle.textContent = '-';
-        }
+      // Open all sections by default in window mode
+      const content = section.querySelector('.section-content');
+      const toggle = section.querySelector('.toggle-icon');
+      if (content && toggle) {
+        content.style.display = 'block';
+        content.classList.add('open');
+        toggle.textContent = '-';
+        section.querySelector('.section-title').classList.add('expanded');
       }
-      
-      // Set up click handler for each section title
-      const sectionTitle = section.querySelector('.section-title');
-      const sectionContent = section.querySelector('.section-content');
-      const toggleIcon = sectionTitle.querySelector('.toggle-icon');
-      
-      sectionTitle.addEventListener('click', () => {
-        const isOpen = sectionContent.style.maxHeight;
-        
-        if (isOpen) {
-          sectionContent.style.maxHeight = null;
-          sectionContent.classList.remove('open');
-          toggleIcon.textContent = '+';
-        } else {
-          sectionContent.style.maxHeight = sectionContent.scrollHeight + 'px';
-          sectionContent.classList.add('open');
-          toggleIcon.textContent = '-';
-        }
-      });
     });
   }
   

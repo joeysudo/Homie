@@ -25,31 +25,22 @@
   --warning: #ffab00;
 }
 
-body {
-  width: 450px;
-  min-height: 500px;
+html, body {
+  width: 100%;
+  height: 100%;
   background-color: var(--background);
   color: var(--text);
   font-size: 14px;
   line-height: 1.5;
-}
-
-/* Side panel view adjustments */
-body.side-panel-view {
-  width: 100%;
-  height: 100vh;
-  max-height: none;
-  overflow-y: auto;
-}
-
-/* Popup view specific styles */
-body.popup-view {
-  max-height: 600px;
   overflow-y: auto;
 }
 
 .container {
   padding: 24px;
+  max-width: 580px;
+  margin: 0 auto;
+  height: 100%;
+  overflow-y: auto;
 }
 
 .header {
@@ -75,13 +66,13 @@ body.popup-view {
 
 .close-button {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 10px;
+  right: 10px;
   background: transparent;
   border: none;
   cursor: pointer;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -89,6 +80,7 @@ body.popup-view {
   border-radius: 50%;
   padding: 0;
   box-shadow: none;
+  z-index: 100;
 }
 
 .close-button:hover {
@@ -98,10 +90,40 @@ body.popup-view {
   transform: none;
 }
 
-/* Adjust close button positioning in side panel */
-.side-panel-view .close-button {
+.close-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.open-in-window-button {
+  position: absolute;
   top: 10px;
   right: 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-light);
+  border-radius: 50%;
+  padding: 0;
+  box-shadow: none;
+  z-index: 100;
+}
+
+.open-in-window-button:hover {
+  background-color: rgba(124, 77, 255, 0.1);
+  color: var(--primary);
+  box-shadow: none;
+  transform: none;
+}
+
+.open-in-window-button svg {
+  width: 20px;
+  height: 20px;
 }
 
 @keyframes float {
@@ -190,8 +212,8 @@ button {
   color: white;
   border: none;
   border-radius: 12px;
-  padding: 12px 18px;
-  font-size: 14px;
+  padding: 14px 20px;
+  font-size: 15px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s, transform 0.2s;
@@ -400,6 +422,8 @@ button svg {
   line-height: 1.6;
   transition: max-height 0.4s ease-out, opacity 0.3s ease;
   overflow: hidden;
+  max-height: none !important;
+  overflow-y: visible !important;
 }
 
 /* Chart and visualization elements */
@@ -1929,4 +1953,73 @@ button:hover svg {
 
 .insight-tip p {
   margin: 0;
+}
+
+/* Analysis container improvements */
+.analysis-container {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+/* Add these styles at the end of the file */
+
+/* Fix for section display */
+.section-title {
+  cursor: pointer;
+  user-select: none;
+}
+
+.section-title.expanded {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.section-content {
+  display: block !important; /* Ensure content is visible */
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  transition: none !important; /* Prevent transitions that might hide content */
+}
+
+/* Ensure content is visible in any section */
+.analysis-section {
+  margin-bottom: 20px;
+  overflow: visible;
+}
+
+/* Make analysis container properly scrollable */
+.analysis-container {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* Make sure the container takes full height */
+.container {
+  height: auto !important;
+  min-height: 100%;
+}
+
+/* Ensure body scrolls properly */
+body {
+  overflow-y: auto !important;
+}
+
+/* Ensure charts and visualizations show properly */
+.chart, .chart-visual {
+  height: auto !important;
+  min-height: 180px;
+}
+
+/* Fix collapse animation issues */
+.collapsed .section-content {
+  max-height: none !important;
+  display: none !important;
+}
+
+/* Fix any other hidden elements */
+.hidden {
+  display: none !important;
 } 

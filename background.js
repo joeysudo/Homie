@@ -5,6 +5,9 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log('Homie extension installed!');
 });
 
+// Global state to track our popup window
+let popupWindow = null;
+
 // Set up context menu if needed
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -15,57 +18,83 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-// Flag to track if we should prevent popup closing
-let keepPopupOpen = false;
-
-// Helper function to open the extension in side panel
-function openInSidePanel(tabId) {
-  // Check if side panel is available (Chrome 114+)
-  if (chrome.sidePanel) {
-    // Open the side panel
-    chrome.sidePanel.open({ tabId }).catch(error => {
-      console.error('Error opening side panel:', error);
-      // Fallback to popup if side panel fails
-      chrome.action.openPopup();
-    });
-    return true;
+// Helper function to open the extension in a separate window
+function openPopupWindow() {
+  // Check if window is already open
+  if (popupWindow) {
+    try {
+      // Try to get the window to check if it's still open
+      chrome.windows.get(popupWindow.id, function(win) {
+        if (chrome.runtime.lastError) {
+          // Window doesn't exist anymore, create a new one
+          createNewWindow();
+        } else {
+          // Focus existing window
+          chrome.windows.update(popupWindow.id, { focused: true });
+        }
+      });
+    } catch (e) {
+      // If there's an error, create a new window
+      createNewWindow();
+    }
+  } else {
+    // No window exists, create a new one
+    createNewWindow();
   }
-  return false;
+}
+
+// Function to create a new window
+function createNewWindow() {
+  try {
+    // Set dimensions for a reasonable size
+    const width = 600;
+    const height = 800;
+    
+    // Open a new popup window with our popup.html
+    chrome.windows.create({
+      url: chrome.runtime.getURL('popup.html'),
+      type: 'popup',
+      width: width,
+      height: height,
+      focused: true
+    }, function(win) {
+      if (chrome.runtime.lastError) {
+        console.error('Error creating window:', chrome.runtime.lastError);
+        return;
+      }
+      popupWindow = win;
+    });
+  } catch (e) {
+    console.error('Error in createNewWindow:', e);
+  }
 }
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'keepPopupOpen') {
-    keepPopupOpen = true;
-    // If this was triggered from a popup, try to reopen in side panel
-    if (sender.url.includes('popup.html') && sender.tab === undefined) {
-      chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-        if (tabs.length > 0) {
-          // Try to open in side panel instead
-          const opened = openInSidePanel(tabs[0].id);
-          sendResponse({ success: opened });
-          
-          // If we opened in side panel, close the popup
-          if (opened) {
-            // We'll close indirectly by not keeping it open
-            keepPopupOpen = false;
-          }
-        }
-      });
-      return true; // Keep channel open for async response
-    }
+  if (message.action === 'openInWindow') {
+    // Open the popup in a separate window
+    openPopupWindow();
     sendResponse({ success: true });
   } else if (message.action === 'closePopup') {
-    keepPopupOpen = false;
-    sendResponse({ success: true });
-  } else if (message.action === 'openSidePanel') {
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      if (tabs.length > 0) {
-        const opened = openInSidePanel(tabs[0].id);
-        sendResponse({ success: opened });
-      } else {
-        sendResponse({ success: false });
+    // If message is from a window we opened, close it
+    if (popupWindow && popupWindow.id) {
+      try {
+        chrome.windows.remove(popupWindow.id, function() {
+          if (chrome.runtime.lastError) {
+            console.error('Error closing window:', chrome.runtime.lastError);
+          }
+          popupWindow = null;
+        });
+      } catch (e) {
+        console.error('Error in closePopup:', e);
+        popupWindow = null;
       }
+    }
+    sendResponse({ success: true });
+  } else if (message.action === 'getPropertyData') {
+    // Return any stored property data
+    chrome.storage.session.get('currentPropertyData', (data) => {
+      sendResponse({ propertyData: data.currentPropertyData || null });
     });
     return true; // Keep channel open for async response
   }
@@ -84,13 +113,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       if (response && response.propertyData) {
         // Store the data temporarily
         chrome.storage.session.set({ 'currentPropertyData': response.propertyData }, () => {
-          // Try to open in side panel first for persistence
-          const sidePanelOpened = openInSidePanel(tab.id);
-          
-          // Fall back to popup if side panel not available
-          if (!sidePanelOpened) {
-            chrome.action.openPopup();
-          }
+          // Open in a separate window that won't close on outside clicks
+          openPopupWindow();
         });
       }
     });
