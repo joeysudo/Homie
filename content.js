@@ -23,23 +23,41 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 function extractPropertyDetails() {
   // Check if we're on a property details page
   const isPropertyPage = window.location.href.includes('/property-') || 
-                         window.location.href.includes('/properties/');
+                         window.location.href.includes('/properties/') ||
+                         document.querySelector('.property-info');
   
   if (!isPropertyPage) {
     throw new Error('Not a property details page');
   }
   
   // Extract basic property information
+  const address = extractAddress();
+  const price = extractPrice();
+  const bedrooms = extractBedrooms();
+  const bathrooms = extractBathrooms();
+  const parkingSpaces = extractParkingSpaces();
+  const propertyType = extractPropertyType();
+  const landSize = extractLandSize();
+  
+  // Log what we're extracting for debugging purposes
+  console.log("Extracted address:", address);
+  console.log("Extracted price:", price);
+  console.log("Extracted bedrooms:", bedrooms);
+  console.log("Extracted bathrooms:", bathrooms);
+  console.log("Extracted parking spaces:", parkingSpaces);
+  console.log("Extracted property type:", propertyType);
+  console.log("Extracted land size:", landSize);
+  
   const propertyData = {
     url: window.location.href,
     title: extractText('h1'),
-    price: extractPrice(),
-    address: extractAddress(),
-    propertyType: extractPropertyType(),
-    bedrooms: extractBedrooms(),
-    bathrooms: extractBathrooms(),
-    parkingSpaces: extractParkingSpaces(),
-    landSize: extractLandSize(),
+    price: price,
+    address: address,
+    propertyType: propertyType,
+    bedrooms: bedrooms,
+    bathrooms: bathrooms,
+    parkingSpaces: parkingSpaces,
+    landSize: landSize,
     description: extractDescription(),
     features: extractFeatures(),
     nearbyAmenities: extractNearbyAmenities(),
@@ -50,7 +68,11 @@ function extractPropertyDetails() {
     postcode: extractPostcode(),
     lastSoldPrice: extractLastSoldPrice(),
     councilRates: extractCouncilRates(),
-    walkScore: extractWalkScore()
+    walkScore: extractWalkScore(),
+    historicalPrices: extractHistoricalPrices(),
+    demographics: extractDemographics(),
+    schoolData: extractSchoolData(),
+    marketTrends: extractMarketTrends()
   };
   
   return propertyData;
@@ -166,12 +188,8 @@ function extractHistoricalPrices() {
 function extractDemographics() {
   let demographics = {
     ageDistribution: [],
-    incomeLevel: null,
-    occupation: [],
-    familyComposition: [],
-    education: [],
-    ethnicBackground: [],
-    neighborhoodType: null
+    ethnicDistribution: [],
+    incomeBrackets: []
   };
   
   // Look for age distribution data
@@ -188,86 +206,7 @@ function extractDemographics() {
       for (const match of ageMatches) {
         demographics.ageDistribution.push({
           range: match[1],
-          percentage: match[2]
-        });
-      }
-    });
-  }
-  
-  // Look for income data
-  const incomeElements = document.querySelectorAll(
-    '[data-testid="demographics-income"], [class*="demographic"] [class*="income"], [class*="median-income"]'
-  );
-  
-  if (incomeElements.length > 0) {
-    incomeElements.forEach(element => {
-      const incomeText = element.textContent.trim();
-      
-      // Extract income level
-      const incomeMatch = incomeText.match(/\$[\d,]+/);
-      if (incomeMatch) {
-        demographics.incomeLevel = incomeMatch[0];
-      }
-    });
-  }
-  
-  // Look for occupation data
-  const occupationElements = document.querySelectorAll(
-    '[data-testid="demographics-occupation"], [class*="demographic"] [class*="occupation"]'
-  );
-  
-  if (occupationElements.length > 0) {
-    occupationElements.forEach(element => {
-      const occupationText = element.textContent.trim();
-      
-      // Extract occupation types and percentages
-      const occupationMatches = occupationText.matchAll(/([\w\s-]+):\s*(\d+(?:\.\d+)?%?)/g);
-      for (const match of occupationMatches) {
-        if (!match[1].includes('%') && !match[1].match(/^\d+$/)) {
-          demographics.occupation.push({
-            type: match[1].trim(),
-            percentage: match[2]
-          });
-        }
-      }
-    });
-  }
-  
-  // Look for family composition data
-  const familyElements = document.querySelectorAll(
-    '[data-testid="demographics-household"], [class*="demographic"] [class*="family"], [class*="household"]'
-  );
-  
-  if (familyElements.length > 0) {
-    familyElements.forEach(element => {
-      const familyText = element.textContent.trim();
-      
-      // Extract family types and percentages
-      const familyMatches = familyText.matchAll(/(couples|single|families|children|no children|living alone)[\w\s-]*:\s*(\d+(?:\.\d+)?%?)/gi);
-      for (const match of familyMatches) {
-        demographics.familyComposition.push({
-          type: match[1].trim(),
-          percentage: match[2]
-        });
-      }
-    });
-  }
-  
-  // Look for education data
-  const educationElements = document.querySelectorAll(
-    '[data-testid="demographics-education"], [class*="demographic"] [class*="education"]'
-  );
-  
-  if (educationElements.length > 0) {
-    educationElements.forEach(element => {
-      const educationText = element.textContent.trim();
-      
-      // Extract education levels and percentages
-      const educationMatches = educationText.matchAll(/(university|bachelor|diploma|high school|certificate)[\w\s-]*:\s*(\d+(?:\.\d+)?%?)/gi);
-      for (const match of educationMatches) {
-        demographics.education.push({
-          level: match[1].trim(),
-          percentage: match[2]
+          percentage: parseFloat(match[2].replace('%', ''))
         });
       }
     });
@@ -286,38 +225,33 @@ function extractDemographics() {
       const ethnicMatches = ethnicText.matchAll(/(Australia|England|China|India|New Zealand|Philippines|[\w\s]+):\s*(\d+(?:\.\d+)?%?)/gi);
       for (const match of ethnicMatches) {
         if (!match[1].includes('%') && !match[1].match(/^\d+$/)) {
-          demographics.ethnicBackground.push({
-            origin: match[1].trim(),
-            percentage: match[2]
+          demographics.ethnicDistribution.push({
+            ethnicity: match[1].trim(),
+            percentage: parseFloat(match[2].replace('%', ''))
           });
         }
       }
     });
   }
   
-  // Extract neighborhood type based on descriptions
-  const propertyDescription = document.querySelector(
-    '[data-testid="description"], [class*="Description"], [class*="description"]'
+  // Look for income data
+  const incomeElements = document.querySelectorAll(
+    '[data-testid="demographics-income"], [class*="demographic"] [class*="income"], [class*="median-income"]'
   );
   
-  if (propertyDescription) {
-    const descText = propertyDescription.textContent.toLowerCase();
-    
-    if (descText.includes('family') && (descText.includes('friendly') || descText.includes('oriented'))) {
-      demographics.neighborhoodType = 'Family-friendly';
-    } else if (descText.includes('professional') || descText.includes('executive') || descText.includes('urban professional')) {
-      demographics.neighborhoodType = 'Professional/Urban';
-    } else if (descText.includes('retiree') || descText.includes('retirement') || descText.includes('over 55')) {
-      demographics.neighborhoodType = 'Retirement/Senior';
-    } else if (descText.includes('student') || descText.includes('university') || descText.includes('college')) {
-      demographics.neighborhoodType = 'Student/University';
-    } else if (descText.includes('trendy') || descText.includes('hip') || descText.includes('vibrant')) {
-      demographics.neighborhoodType = 'Trendy/Hipster';
-    } else if (descText.includes('diverse') || descText.includes('multicultural')) {
-      demographics.neighborhoodType = 'Multicultural/Diverse';
-    } else if (descText.includes('quiet') || descText.includes('peaceful')) {
-      demographics.neighborhoodType = 'Quiet/Residential';
-    }
+  if (incomeElements.length > 0) {
+    incomeElements.forEach(element => {
+      const incomeText = element.textContent.trim();
+      
+      // Extract income brackets and percentages
+      const incomeMatches = incomeText.matchAll(/((?:Under |Over |)\$?[\d\.]+k?(?:\s*-\s*\$?[\d\.]+k?)?):?\s*([\d\.]+)%/gi);
+      for (const match of incomeMatches) {
+        demographics.incomeBrackets.push({
+          bracket: match[1].trim(),
+          percentage: parseFloat(match[2])
+        });
+      }
+    });
   }
   
   return demographics;
@@ -471,7 +405,10 @@ function extractPrice() {
   const priceElements = [
     '.property-price',
     '[data-testid="listing-details__summary-title"]',
-    '.price'
+    '.price',
+    '.property-price.property-info__price', // New class structure
+    '.property-info__price', // Another possible class
+    'span.property-price' // Direct span with class
   ];
   
   for (const selector of priceElements) {
@@ -481,43 +418,38 @@ function extractPrice() {
     }
   }
   
+  // Try the new structure observed in the HTML snippet
+  const newPriceEl = document.querySelector('span[class*="property-price"]');
+  if (newPriceEl && newPriceEl.textContent.trim()) {
+    return newPriceEl.textContent.trim();
+  }
+  
   return 'Price not specified';
 }
 
 function extractAddress() {
-  // Try to extract address from property-info__address element in the HTML provided
-  const addressElement = document.querySelector('.property-info-address, .property-info__address, [class*="property-info-address"], h1.property-info-address');
+  // Look for the property-info-address element in the new HTML structure
+  const addressElement = document.querySelector('.property-info-address');
   if (addressElement && addressElement.textContent.trim()) {
     return addressElement.textContent.trim();
   }
   
-  // Try the new format with property-info__header
-  const headerElement = document.querySelector('[class*="property-info__header"]');
-  if (headerElement) {
-    const addressHeading = headerElement.querySelector('h1');
-    if (addressHeading) {
-      return addressHeading.textContent.trim();
-    }
+  // Try with the h1 element with class property-info-address
+  const h1AddressElement = document.querySelector('h1.property-info-address');
+  if (h1AddressElement && h1AddressElement.textContent.trim()) {
+    return h1AddressElement.textContent.trim();
   }
   
-  // Look for the address in new HTML structure
-  const addressWrapperElements = document.querySelectorAll('[class*="property-info_address"], [class*="property-info-address"], [class*="property-info__address"]');
-  for (const element of addressWrapperElements) {
-    if (element.textContent.trim()) {
-      return element.textContent.trim();
-    }
+  // Try with newer structure from the provided HTML
+  const modernAddressEl = document.querySelector('.property-info__header h1, .property-info-address');
+  if (modernAddressEl && modernAddressEl.textContent.trim()) {
+    return modernAddressEl.textContent.trim();
   }
-  
-  // Check for specific structure in the HTML example
-  const addressStructure = document.querySelector('.property-info__header .property-info-address-actions h1');
-  if (addressStructure && addressStructure.textContent.trim()) {
-    return addressStructure.textContent.trim();
-  }
-  
-  // Try to use the page title if structured element not found
-  const title = document.title;
-  if (title && title.includes('-')) {
-    return title.split('-')[0].trim();
+
+  // Try the new structure observed in the HTML snippet
+  const newAddressEl = document.querySelector('[class*="property-info-address"]');
+  if (newAddressEl && newAddressEl.textContent.trim()) {
+    return newAddressEl.textContent.trim();
   }
   
   return 'Address not found';
@@ -533,28 +465,15 @@ function extractNumber(selector) {
 }
 
 function extractLandSize() {
-  // First try the property-info section with aria-label containing "land size"
-  const landSizeElements = document.querySelectorAll('li[aria-label*="land size"]');
-  if (landSizeElements.length > 0) {
-    for (const element of landSizeElements) {
-      const text = element.textContent.trim();
-      return text;
-    }
-  }
-  
-  // Try finding it in the Text_Typography elements
-  const typographyElements = document.querySelectorAll('p.Text_Typography');
-  for (const element of typographyElements) {
-    if (element.textContent.includes('m²') || element.textContent.includes('sqm')) {
-      return element.textContent.trim();
-    }
-  }
-  
-  // Try standard selectors
+  // Try different selectors for land size
   const landSizeSelectors = [
-    '.property-features__feature--land-area',
-    '.land-size',
-    '[data-testid="property-features__land-area"]'
+    '[data-testid="property-features-feature-land-size"] .property-features__feature-text',
+    '.property-features__feature--land-size .property-features__feature-text',
+    '.property-features__land-size .property-features__feature-text',
+    '[data-testid="property-features__land-size"]',
+    '[class*="landSizeFeature"]',
+    '[class*="property-features"] [class*="land"]',
+    '[class*="property-features"] [class*="size"]'
   ];
   
   for (const selector of landSizeSelectors) {
@@ -564,34 +483,54 @@ function extractLandSize() {
     }
   }
   
-  // Try to find it in the description
-  const description = document.querySelector('.property-description__content');
-  if (description) {
-    const text = description.textContent;
-    const landSizeMatch = text.match(/(\d+(?:\.\d+)?)\s*(m²|sqm|sq\.m|hectares|acres)/i);
-    if (landSizeMatch) {
-      return `${landSizeMatch[0]}`;
+  // If standard selectors fail, search for elements containing "land", "size", "sqm", "m²" or "acre"
+  const featureElements = document.querySelectorAll('[class*="features"], [class*="feature"]');
+  for (const element of featureElements) {
+    const text = element.textContent.toLowerCase();
+    if (text.includes('land') || text.includes('size') || text.includes('sqm') || 
+        text.includes('m²') || text.includes('acre')) {
+      // Try to extract a number followed by size units
+      const match = element.textContent.match(/(\d+[\d,\.]*\s*(?:sqm|m²|acres?|ha))/i);
+      if (match) return match[1];
     }
   }
   
-  return 'Land size not specified';
+  // Look in the description text for land size
+  const descriptionText = extractDescription();
+  const sizeMatch = descriptionText.match(/(\d+[\d,\.]*\s*(?:sqm|m²|square\s*meters?|acres?|hectares?|ha))/i);
+  if (sizeMatch) return sizeMatch[1];
+  
+  return 'Not specified';
 }
 
 function extractPropertyType() {
-  // First check for a House type label
-  const typeLabelElements = document.querySelectorAll('p.Text_Typography');
-  for (const element of typeLabelElements) {
-    if (element.textContent === 'House') return 'House';
-    if (element.textContent === 'Apartment') return 'Apartment';
-    if (element.textContent === 'Townhouse') return 'Townhouse';
-    if (element.textContent === 'Land') return 'Land';
-    if (element.textContent === 'Unit') return 'Unit';
+  // Try looking for the property type in a p.Text_Typography element
+  const typographyElement = document.querySelector('p.Text__Typography, p[class*="Text_Typography"]');
+  if (typographyElement && typographyElement.textContent.trim()) {
+    const text = typographyElement.textContent.trim();
+    // Check if it matches a valid property type
+    const validPropertyTypes = ['House', 'Townhouse', 'Apartment', 'Unit', 'Villa', 'Land', 'Rural'];
+    if (validPropertyTypes.some(type => text.includes(type))) {
+      return text;
+    }
   }
   
-  // Look for property type indicators
+  // Look for a ul with aria-label containing property type info
+  const featureUl = document.querySelector('ul[aria-label*="Townhouse"], ul[aria-label*="House"], ul[aria-label*="Apartment"]');
+  if (featureUl) {
+    const label = featureUl.getAttribute('aria-label');
+    const typeMatch = label.match(/(Townhouse|House|Apartment|Unit|Villa|Land|Rural)/i);
+    if (typeMatch) {
+      return typeMatch[1];
+    }
+  }
+  
+  // Try different selectors for property type
   const propertyTypeSelectors = [
+    '[data-testid="listing-summary-property-type"]',
     '.property-info__property-type',
-    '[data-testid="listing-summary-property-type"]'
+    '[class*="propertyType"]',
+    '.property-features__property-type'
   ];
   
   for (const selector of propertyTypeSelectors) {
@@ -601,17 +540,31 @@ function extractPropertyType() {
     }
   }
   
-  // Try to infer from URL or title
-  const url = window.location.href.toLowerCase();
-  const title = document.title.toLowerCase();
+  // If we can't find a specific element, try to infer from the page content
+  const pageText = document.body.textContent;
   
-  if (url.includes('house') || title.includes('house')) return 'House';
-  if (url.includes('apartment') || title.includes('apartment')) return 'Apartment';
-  if (url.includes('unit') || title.includes('unit')) return 'Unit';
-  if (url.includes('townhouse') || title.includes('townhouse')) return 'Townhouse';
-  if (url.includes('land') || title.includes('land')) return 'Land';
+  // Common property types to look for
+  const propertyTypes = [
+    'House', 'Apartment', 'Unit', 'Townhouse', 'Villa', 'Land',
+    'Rural', 'Acreage', 'Retirement', 'Development', 'Commercial'
+  ];
   
-  return 'Property type not specified';
+  for (const type of propertyTypes) {
+    const regex = new RegExp(`\\b${type}\\b`, 'i');
+    if (regex.test(pageText)) {
+      return type;
+    }
+  }
+  
+  // Look for property type in the URL
+  if (window.location.href.includes('/house-')) return 'House';
+  if (window.location.href.includes('/apartment-')) return 'Apartment';
+  if (window.location.href.includes('/unit-')) return 'Unit';
+  if (window.location.href.includes('/townhouse-')) return 'Townhouse';
+  if (window.location.href.includes('/villa-')) return 'Villa';
+  if (window.location.href.includes('/land-')) return 'Land';
+  
+  return 'Not specified';
 }
 
 function extractDescription() {
@@ -834,75 +787,207 @@ function extractSuburb() {
 
 // Extract specific feature: bedrooms
 function extractBedrooms() {
-  // First, try the property-info section with aria-label containing "bedrooms"
+  // Try to extract from aria-label attributes first (highest priority)
+  const bedroomAria = document.querySelector('li[aria-label*="bedroom"], li[aria-label*="Bedroom"]');
+  if (bedroomAria) {
+    const match = bedroomAria.getAttribute('aria-label').match(/(\d+)\s*bedroom/i);
+    if (match) {
+      return match[1];
+    }
+    return bedroomAria.textContent.trim();
+  }
+  
+  // Try specific element structure from HTML snippet
+  const bedroomLi = document.querySelector('li[aria-label="2 bedrooms"]');
+  if (bedroomLi) {
+    const match = bedroomLi.getAttribute('aria-label').match(/(\d+)/);
+    if (match) {
+      return match[1];
+    }
+  }
+  
+  // Try to find any li element with bedroom text
   const bedroomElements = document.querySelectorAll('li[aria-label*="bedroom"]');
-  if (bedroomElements.length > 0) {
-    for (const element of bedroomElements) {
-      const text = element.textContent.trim();
-      const match = text.match(/(\d+)/);
-      if (match) return match[0];
+  for (const element of bedroomElements) {
+    const label = element.getAttribute('aria-label');
+    const match = label.match(/(\d+)/);
+    if (match) {
+      return match[1];
     }
   }
   
-  // Try the new style property features with Text_Typography
-  const typographyElements = document.querySelectorAll('p.Text_Typography');
-  for (const element of typographyElements) {
-    if (element.textContent.includes('bedroom')) {
-      const match = element.textContent.match(/(\d+)/);
-      if (match) return match[0];
+  // Try different selectors for bedrooms (fallback approach)
+  const bedroomSelectors = [
+    '[data-testid="property-features-feature-beds"] .property-features__feature-text',
+    '.property-features__feature--beds .property-features__feature-text',
+    '.property-features__beds .property-features__feature-text',
+    '[data-testid="property-features__beds"]',
+    '.general-features [data-testid*="beds" i]',
+    '[class*="bedroomFeature"]',
+    '[class*="property-features"] [class*="bed"]'
+  ];
+  
+  for (const selector of bedroomSelectors) {
+    const element = document.querySelector(selector);
+    if (element && element.textContent.trim()) {
+      // Extract just the number
+      const match = element.textContent.trim().match(/(\d+)/);
+      if (match) return match[1];
+      return element.textContent.trim();
     }
   }
   
-  // Try the old extraction method using the class selector
-  return extractNumber('.property-features__feature--beds');
+  // Try the parent ul element with property-info__primary-features
+  const featuresUl = document.querySelector('ul.property-info__primary-features, ul[class*="primary-features"]');
+  if (featuresUl) {
+    const text = featuresUl.textContent;
+    const match = text.match(/(\d+)\s*bedroom/i);
+    if (match) {
+      return match[1];
+    }
+  }
+  
+  // Check in any element with "bedrooms" text
+  const allElements = document.querySelectorAll('*');
+  for (const element of allElements) {
+    if (element.textContent.match(/\d+\s*bedroom/i)) {
+      const match = element.textContent.match(/(\d+)\s*bedroom/i);
+      if (match) {
+        return match[1];
+      }
+    }
+  }
+  
+  return 'N/A';
 }
 
 // Extract specific feature: bathrooms
 function extractBathrooms() {
-  // First, try the property-info section with aria-label
+  // Try to extract from aria-label attributes first (highest priority)
+  const bathroomAria = document.querySelector('li[aria-label*="bathroom"], li[aria-label*="Bathroom"]');
+  if (bathroomAria) {
+    const match = bathroomAria.getAttribute('aria-label').match(/(\d+)\s*bathroom/i);
+    if (match) {
+      return match[1];
+    }
+    return bathroomAria.textContent.trim();
+  }
+  
+  // Try specific element structure from HTML snippet
+  const bathroomLi = document.querySelector('li[aria-label="2 bathrooms"]');
+  if (bathroomLi) {
+    const match = bathroomLi.getAttribute('aria-label').match(/(\d+)/);
+    if (match) {
+      return match[1];
+    }
+  }
+  
+  // Try to find any li element with bathroom text
   const bathroomElements = document.querySelectorAll('li[aria-label*="bathroom"]');
-  if (bathroomElements.length > 0) {
-    for (const element of bathroomElements) {
-      const text = element.textContent.trim();
-      const match = text.match(/(\d+)/);
-      if (match) return match[0];
+  for (const element of bathroomElements) {
+    const label = element.getAttribute('aria-label');
+    const match = label.match(/(\d+)/);
+    if (match) {
+      return match[1];
     }
   }
   
-  // Try the new style property features with Text_Typography
-  const typographyElements = document.querySelectorAll('p.Text_Typography');
-  for (const element of typographyElements) {
-    if (element.textContent.includes('bathroom')) {
-      const match = element.textContent.match(/(\d+)/);
-      if (match) return match[0];
+  // Try different selectors for bathrooms (fallback approach)
+  const bathroomSelectors = [
+    '[data-testid="property-features-feature-baths"] .property-features__feature-text',
+    '.property-features__feature--baths .property-features__feature-text',
+    '.property-features__baths .property-features__feature-text',
+    '[data-testid="property-features__baths"]',
+    '.general-features [data-testid*="bath" i]',
+    '[class*="bathroomFeature"]',
+    '[class*="property-features"] [class*="bath"]'
+  ];
+  
+  for (const selector of bathroomSelectors) {
+    const element = document.querySelector(selector);
+    if (element && element.textContent.trim()) {
+      // Extract just the number
+      const match = element.textContent.trim().match(/(\d+)/);
+      if (match) return match[1];
+      return element.textContent.trim();
     }
   }
   
-  // Try the old extraction method
-  return extractNumber('.property-features__feature--baths');
+  // Try the parent ul element with property-info__primary-features
+  const featuresUl = document.querySelector('ul.property-info__primary-features, ul[class*="primary-features"]');
+  if (featuresUl) {
+    const text = featuresUl.textContent;
+    const match = text.match(/(\d+)\s*bathroom/i);
+    if (match) {
+      return match[1];
+    }
+  }
+  
+  return 'N/A';
 }
 
 // Extract specific feature: parking spaces
 function extractParkingSpaces() {
-  // First, try the property-info section with aria-label
-  const parkingElements = document.querySelectorAll('li[aria-label*="car space"], li[aria-label*="car spaces"]');
-  if (parkingElements.length > 0) {
-    for (const element of parkingElements) {
-      const text = element.textContent.trim();
-      const match = text.match(/(\d+)/);
-      if (match) return match[0];
+  // Try to extract from aria-label attributes first (highest priority)
+  const parkingAria = document.querySelector('li[aria-label*="car space"], li[aria-label*="Car space"]');
+  if (parkingAria) {
+    const match = parkingAria.getAttribute('aria-label').match(/(\d+)\s*car\s*space/i);
+    if (match) {
+      return match[1];
+    }
+    return parkingAria.textContent.trim();
+  }
+  
+  // Try specific element structure from HTML snippet
+  const parkingLi = document.querySelector('li[aria-label="1 car space"]');
+  if (parkingLi) {
+    const match = parkingLi.getAttribute('aria-label').match(/(\d+)/);
+    if (match) {
+      return match[1];
     }
   }
   
-  // Try the new style property features with Text_Typography
-  const typographyElements = document.querySelectorAll('p.Text_Typography');
-  for (const element of typographyElements) {
-    if (element.textContent.includes('car space') || element.textContent.includes('car spaces')) {
-      const match = element.textContent.match(/(\d+)/);
-      if (match) return match[0];
+  // Try to find any li element with car space or parking text
+  const parkingElements = document.querySelectorAll('li[aria-label*="car space"], li[aria-label*="parking"]');
+  for (const element of parkingElements) {
+    const label = element.getAttribute('aria-label');
+    const match = label.match(/(\d+)/);
+    if (match) {
+      return match[1];
     }
   }
   
-  // Try the old extraction method
-  return extractNumber('.property-features__feature--parking');
+  // Try different selectors for parking (fallback approach)
+  const parkingSelectors = [
+    '[data-testid="property-features-feature-parking"] .property-features__feature-text',
+    '.property-features__feature--parking .property-features__feature-text',
+    '.property-features__parking .property-features__feature-text',
+    '[data-testid="property-features__parking"]',
+    '.general-features [data-testid*="parking" i]',
+    '[class*="parkingFeature"]',
+    '[class*="property-features"] [class*="parking"]',
+    '[class*="property-features"] [class*="car"]'
+  ];
+  
+  for (const selector of parkingSelectors) {
+    const element = document.querySelector(selector);
+    if (element && element.textContent.trim()) {
+      // Extract just the number
+      const match = element.textContent.trim().match(/(\d+)/);
+      if (match) return match[1];
+      return element.textContent.trim();
+    }
+  }
+  
+  // Try the parent ul element with property-info__primary-features
+  const featuresUl = document.querySelector('ul.property-info__primary-features, ul[class*="primary-features"]');
+  if (featuresUl) {
+    const text = featuresUl.textContent;
+    const match = text.match(/(\d+)\s*car\s*space/i);
+    if (match) {
+      return match[1];
+    }
+  }
+  
+  return 'N/A';
 } 

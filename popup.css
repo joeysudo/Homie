@@ -420,7 +420,7 @@ button svg {
   color: var(--text-light);
   padding: 20px;
   line-height: 1.6;
-  transition: max-height 0.4s ease-out, opacity 0.3s ease;
+  transition: max-height 0.5s ease-out;
   overflow: hidden;
   max-height: none !important;
   overflow-y: visible !important;
@@ -1122,23 +1122,23 @@ button:hover svg {
 
 /* Demographics container styling */
 .demographics-container {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  margin: 0 5px;
 }
 
 .demographic-chart-container {
-  background-color: var(--background);
-  border-radius: 12px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  margin-bottom: 10px;
-  transition: transform 0.3s, box-shadow 0.3s;
+  background: #fff;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .demographic-chart-container:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(124, 77, 255, 0.1);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
 }
 
 .demographic-chart-container h4 {
@@ -1148,110 +1148,159 @@ button:hover svg {
   font-size: 15px;
 }
 
-/* Age distribution chart */
+/* Age Distribution Chart */
 .age-distribution-chart {
   display: flex;
-  justify-content: space-around;
-  align-items: flex-end;
-  height: 120px;
-  padding-bottom: 30px;
-  position: relative;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 15px;
+  width: 100%;
 }
 
 .age-bar-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 12%;
+  width: 100%;
   position: relative;
+  height: 36px;
+  margin-bottom: 6px;
+  border-radius: 18px;
+  background-color: rgba(124, 77, 255, 0.1);
+  overflow: hidden;
 }
 
 .age-bar {
-  width: 100%;
-  background: linear-gradient(to top, var(--primary), var(--primary-light));
-  border-radius: 4px 4px 0 0;
-  transition: height 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.age-label {
-  position: absolute;
-  bottom: -25px;
-  font-size: 11px;
-  color: var(--text-light);
+  height: 100%;
+  border-radius: 18px;
+  background: linear-gradient(to right, var(--primary-light), var(--primary));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  color: white;
   font-weight: 500;
+  font-size: 13px;
+  box-shadow: 0 2px 5px rgba(124, 77, 255, 0.3);
+  animation: fillWidth 1.5s ease-out forwards;
+  overflow: hidden;
 }
 
-/* Ethnic distribution pie chart */
+.age-label, .age-percentage {
+  z-index: 2;
+  white-space: nowrap;
+}
+
+/* Ethnic Distribution Chart */
 .ethnic-distribution-chart {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  margin-top: 20px;
+  width: 100%;
 }
 
-.pie-chart-container {
+.pie-container {
   position: relative;
-  width: 150px;
-  height: 150px;
+  width: 200px;
+  height: 200px;
+  margin-bottom: 20px;
+}
+
+.pie-chart {
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
+  position: relative;
   overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
 .pie-segment {
   position: absolute;
   width: 100%;
   height: 100%;
-  transform-origin: center;
-  transition: transform 0.3s ease;
+  transform-origin: 50% 50%;
+  transition: filter 0.3s ease;
 }
 
 .pie-segment:hover {
-  transform: scale(1.05);
+  filter: brightness(1.1);
 }
 
-/* Income distribution chart */
+.pie-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
+  margin-bottom: 8px;
+}
+
+.color-box {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  margin-right: 6px;
+}
+
+.legend-label {
+  font-size: 13px;
+  color: var(--text);
+  margin-right: 6px;
+}
+
+.legend-percentage {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+/* Income Distribution Chart */
 .income-distribution-chart {
   display: flex;
   flex-direction: column;
-  gap: 15px;
-}
-
-.income-bar-row {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.income-bar-label {
-  width: 110px;
-  font-size: 13px;
-  color: var(--text-dark);
-  font-weight: 500;
+  gap: 10px;
+  margin-top: 15px;
+  width: 100%;
 }
 
 .income-bar-container {
-  flex: 1;
-  height: 25px;
-  background-color: rgba(124, 77, 255, 0.1);
-  border-radius: 12px;
+  width: 100%;
+  position: relative;
+  height: 36px;
+  margin-bottom: 6px;
+  border-radius: 18px;
+  background-color: rgba(0, 0, 0, 0.05);
   overflow: hidden;
 }
 
 .income-bar {
   height: 100%;
-  border-radius: 12px;
+  border-radius: 18px;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding-right: 10px;
-  transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  justify-content: space-between;
+  padding: 0 12px;
+  color: white;
+  font-weight: 500;
+  font-size: 13px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+  animation: fillWidth 1.5s ease-out forwards;
+  overflow: hidden;
 }
 
-.income-bar-value {
-  color: white;
-  font-size: 12px;
-  font-weight: 600;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+.income-label, .income-percentage {
+  z-index: 2;
+  white-space: nowrap;
+}
+
+@keyframes fillWidth {
+  from { width: 0; }
+  to { width: var(--percentage, 100%); }
 }
 
 /* Demographics visualization styles */
@@ -1610,12 +1659,7 @@ button:hover svg {
 }
 
 .collapsed .section-content {
-  max-height: 0 !important;
-  opacity: 0.6;
-  padding-top: 0;
-  padding-bottom: 0;
-  margin-top: 0;
-  margin-bottom: 0;
+  max-height: 0;
 }
 
 .collapsed .toggle-icon {
@@ -1695,8 +1739,8 @@ button:hover svg {
 .demographics-container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  margin-top: 16px;
+  gap: 30px;
+  margin: 0 5px;
 }
 
 .demographic-chart {
@@ -1849,7 +1893,7 @@ button:hover svg {
   padding: 0;
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.4s ease, padding 0.4s ease;
+  transition: max-height 0.5s ease-out;
 }
 
 .section-content.open {
@@ -2022,4 +2066,940 @@ body {
 /* Fix any other hidden elements */
 .hidden {
   display: none !important;
-} 
+}
+
+/* Property Summary Section */
+.property-summary-card {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+}
+
+.property-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 12px;
+}
+
+/* Add style for the fifth item (parking) to ensure proper alignment */
+.property-summary-grid .property-data-item:nth-child(5) {
+  grid-column: 1 / -1;
+  margin: 0 auto;
+  width: 80%;
+}
+
+@media (min-width: 400px) {
+  .property-summary-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .property-summary-grid .property-data-item:nth-child(3),
+  .property-summary-grid .property-data-item:nth-child(5) {
+    grid-column: auto;
+    width: 100%;
+  }
+}
+
+.property-data-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.property-data-icon {
+  margin-right: 10px;
+  color: var(--primary-color);
+}
+
+.property-data-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-right: 8px;
+}
+
+.property-data-value {
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.property-address {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--primary-color);
+}
+
+.property-price {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--text-color);
+}
+
+/* Financial Analysis Section */
+.financial-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.financial-metric-card {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.metric-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.metric-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+.price-forecast-container,
+.rental-return-container {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.price-forecast-container h4,
+.rental-return-container h4 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--primary-color);
+}
+
+.price-forecast-chart,
+.rental-return-chart {
+  height: 250px;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.forecast-bar-container {
+  display: flex;
+  height: 200px;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 10px;
+}
+
+.forecast-bar-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: calc(100% / 20 - 4px);
+}
+
+.forecast-bar {
+  background: linear-gradient(to top, var(--primary-color-light), var(--primary-color));
+  width: 100%;
+  border-radius: 6px 6px 0 0;
+  position: relative;
+  transition: height 1.5s ease-out;
+  height: 0; /* Initial height */
+}
+
+.forecast-year {
+  font-size: 10px;
+  margin-top: 8px;
+  color: var(--text-muted);
+  transform: rotate(-45deg);
+  white-space: nowrap;
+}
+
+.forecast-value {
+  position: absolute;
+  top: -20px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.forecast-baseline {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--border-color);
+}
+
+/* Rental Return Chart Styles */
+.rental-metrics-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.rental-return-chart {
+  height: 200px;
+}
+
+.rental-progress-container {
+  margin-bottom: 16px;
+}
+
+.rental-progress-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.rental-progress-title {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.rental-progress-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.rental-progress-bar {
+  height: 8px;
+  width: 100%;
+  background-color: var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.rental-progress-fill {
+  height: 100%;
+  background: linear-gradient(to right, var(--primary-color-light), var(--primary-color));
+  border-radius: 4px;
+  transition: width 1.5s ease-out;
+  width: 0; /* Initial width */
+}
+
+/* Demographics Section */
+.demographics-container {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  margin: 0 5px;
+}
+
+.demographic-chart-container {
+  background: #fff;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.demographic-chart-container:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.demographic-chart-container h4 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--primary-color);
+  text-align: center;
+}
+
+/* Age Distribution Chart */
+.age-distribution-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 15px;
+  width: 100%;
+}
+
+.age-bar-container {
+  width: 100%;
+  position: relative;
+  height: 36px;
+  margin-bottom: 6px;
+  border-radius: 18px;
+  background-color: rgba(124, 77, 255, 0.1);
+  overflow: hidden;
+}
+
+.age-bar {
+  height: 100%;
+  border-radius: 18px;
+  background: linear-gradient(to right, var(--primary-light), var(--primary));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  color: white;
+  font-weight: 500;
+  font-size: 13px;
+  box-shadow: 0 2px 5px rgba(124, 77, 255, 0.3);
+  animation: fillWidth 1.5s ease-out forwards;
+  overflow: hidden;
+}
+
+.age-label, .age-percentage {
+  z-index: 2;
+  white-space: nowrap;
+}
+
+/* Ethnic Distribution Chart (Pie Chart) */
+.pie-chart-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 180px;
+}
+
+.pie-chart {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #f0f0f0;
+  margin-bottom: 16px;
+}
+
+.pie-segment {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 50%;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.pie-segment:hover {
+  transform: scale(1.05);
+}
+
+.pie-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
+  margin-bottom: 8px;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  margin-right: 6px;
+}
+
+.legend-label {
+  font-size: 13px;
+  color: var(--text);
+  margin-right: 6px;
+}
+
+.legend-percentage {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+/* Income Distribution Chart */
+.income-distribution-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 15px;
+  width: 100%;
+}
+
+.income-bar-container {
+  width: 100%;
+  position: relative;
+  height: 36px;
+  margin-bottom: 6px;
+  border-radius: 18px;
+  background-color: rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.income-bar {
+  height: 100%;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  color: white;
+  font-weight: 500;
+  font-size: 13px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+  animation: fillWidth 1.5s ease-out forwards;
+  overflow: hidden;
+}
+
+.income-label, .income-percentage {
+  z-index: 2;
+  white-space: nowrap;
+}
+
+/* Animation for charts */
+@keyframes growBar {
+  from { height: 0; }
+  to { height: var(--bar-height); }
+}
+
+@keyframes fillWidth {
+  from { width: 0; }
+  to { width: var(--bar-width); }
+}
+
+@keyframes dashOffset {
+  from { stroke-dashoffset: var(--circumference); }
+  to { stroke-dashoffset: var(--dash-offset); }
+}
+
+.age-bar,
+.forecast-bar,
+.income-bar,
+.rental-progress-fill {
+  animation: 1s ease-out forwards;
+}
+
+.age-bar {
+  animation-name: growBar;
+}
+
+.income-bar,
+.rental-progress-fill {
+  animation-name: fillWidth;
+}
+
+/* Add ripple effect to buttons */
+button {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  transform: scale(0);
+  animation: ripple-animation 0.6s ease-out;
+}
+
+@keyframes ripple-animation {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* Line chart for price forecast */
+.line-chart-container {
+  display: flex;
+  flex-direction: column;
+  margin: 20px 0;
+  padding: 10px 5px;
+  height: 280px;
+}
+
+.chart-grid {
+  display: flex;
+  height: 220px;
+  width: 100%;
+}
+
+.price-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-right: 10px;
+  width: 80px;
+  font-size: 11px;
+  color: var(--text-muted, #666);
+}
+
+.price-marker {
+  height: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.line-chart {
+  flex: 1;
+  border-left: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
+  position: relative;
+}
+
+.line-chart svg {
+  width: 100%;
+  height: 200px;
+}
+
+.line-chart polyline {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: dash 2s ease-in-out forwards;
+}
+
+.line-chart circle {
+  opacity: 0;
+  animation: fadeIn 0.5s ease-in-out forwards;
+  animation-delay: 1.5s;
+}
+
+.line-chart text {
+  opacity: 0;
+  animation: fadeIn 0.5s ease-in-out forwards;
+  animation-delay: 1.8s;
+}
+
+.year-axis {
+  display: flex;
+  justify-content: space-between;
+  padding-left: 80px;
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--text-color, #333);
+}
+
+.year-marker {
+  flex: 1;
+  text-align: center;
+  font-weight: 500;
+}
+
+.forecast-title {
+  text-align: center;
+  margin-bottom: 15px;
+  font-size: 16px;
+  color: var(--accent-color, #4A90E2);
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+/* Income distribution chart */
+.income-chart {
+  margin: 20px 0;
+  padding: 0 5px;
+}
+
+.income-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.income-bar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.income-bar-container {
+  height: 25px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.income-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-color, #4A90E2), var(--accent-light, #73B4FF));
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transform-origin: left;
+  animation: growWidth 1.5s ease-out forwards;
+}
+
+.income-percentage {
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.income-label {
+  font-size: 13px;
+  color: var(--text-color, #333);
+  font-weight: 500;
+}
+
+.chart-title {
+  text-align: center;
+  margin-bottom: 15px;
+  font-size: 16px;
+  color: var(--accent-color, #4A90E2);
+}
+
+/* Schools section */
+.schools-container {
+  margin: 15px 0;
+}
+
+.school-category {
+  margin-bottom: 20px;
+}
+
+.school-category h4 {
+  font-size: 16px;
+  margin-bottom: 10px;
+  color: var(--accent-color, #4A90E2);
+  text-align: center;
+}
+
+.schools-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.school-card {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 12px 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.school-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.school-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.school-name {
+  font-weight: 600;
+  color: var(--text-color, #333);
+  font-size: 14px;
+}
+
+.school-details {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted, #666);
+}
+
+.school-type {
+  background: #f0f5ff;
+  color: var(--accent-color, #4A90E2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.school-distance {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.school-rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f5f5f5;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.rating-value {
+  font-weight: 600;
+  color: var(--accent-color, #4A90E2);
+}
+
+.catchment-info {
+  margin-top: 20px;
+  background: #f0f8ff;
+  border-left: 4px solid var(--accent-color, #4A90E2);
+  padding: 12px 15px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.catchment-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 5px;
+  color: var(--accent-color, #4A90E2);
+}
+
+.catchment-details {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Price Forecast Chart */
+.forecast-chart-wrapper {
+  margin: 20px 0;
+  padding: 10px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.forecast-chart {
+  display: flex;
+  height: 240px;
+  margin-bottom: 10px;
+}
+
+.forecast-y-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-right: 10px;
+  width: 100px;
+  color: #666;
+  font-size: 11px;
+  border-right: 1px dashed #e0e0e0;
+}
+
+.forecast-y-label {
+  height: 40px;
+  display: flex;
+  align-items: center;
+}
+
+.forecast-graph {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.forecast-line {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: drawLine 2s ease-in-out forwards;
+}
+
+.forecast-point {
+  opacity: 0;
+  animation: fadeIn 0.3s ease-in-out forwards;
+  animation-delay: calc(var(--i, 0) * 0.2s + 1.5s);
+}
+
+.forecast-point:nth-child(1) { --i: 0; }
+.forecast-point:nth-child(4) { --i: 1; }
+.forecast-point:nth-child(7) { --i: 2; }
+.forecast-point:nth-child(10) { --i: 3; }
+.forecast-point:nth-child(13) { --i: 4; }
+.forecast-point:nth-child(16) { --i: 5; }
+
+.forecast-label, .forecast-growth {
+  opacity: 0;
+  animation: fadeIn 0.3s ease-in-out forwards;
+  animation-delay: calc(var(--i, 0) * 0.2s + 1.7s);
+}
+
+.forecast-label:nth-child(2) { --i: 0; }
+.forecast-label:nth-child(5) { --i: 1; }
+.forecast-label:nth-child(8) { --i: 2; }
+.forecast-label:nth-child(11) { --i: 3; }
+.forecast-label:nth-child(14) { --i: 4; }
+.forecast-label:nth-child(17) { --i: 5; }
+
+.forecast-growth:nth-child(3) { --i: 0; }
+.forecast-growth:nth-child(6) { --i: 1; }
+.forecast-growth:nth-child(9) { --i: 2; }
+.forecast-growth:nth-child(12) { --i: 3; }
+.forecast-growth:nth-child(15) { --i: 4; }
+.forecast-growth:nth-child(18) { --i: 5; }
+
+.forecast-x-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-left: 100px;
+  padding-top: 5px;
+  border-top: 1px dashed #e0e0e0;
+}
+
+.forecast-x-label {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: #333;
+}
+
+.forecast-title {
+  text-align: center;
+  margin-bottom: 15px;
+  font-size: 16px;
+  color: var(--accent-color, #4A90E2);
+}
+
+@keyframes drawLine {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Age distribution chart */
+.age-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.age-bar-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.age-label {
+  width: 60px;
+  font-size: 13px;
+  text-align: right;
+  color: #333;
+  font-weight: 500;
+}
+
+.age-bar-container {
+  flex: 1;
+  height: 24px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.age-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-color, #4A90E2), var(--accent-light, #73B4FF));
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 0;
+  animation: growWidth 1.5s ease-out forwards;
+  position: relative;
+  transition: width 0.3s;
+}
+
+.age-percentage {
+  color: white;
+  font-weight: 600;
+  font-size: 12px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Ethnic distribution chart */
+.pie-chart-container {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.pie-chart {
+  width: 160px;
+  height: 160px;
+}
+
+.pie-segment {
+  transition: transform 0.2s;
+  transform-origin: center;
+}
+
+.pie-segment:hover {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+  cursor: pointer;
+}
+
+.pie-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 15px;
+  max-width: 300px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+.legend-label {
+  flex: 1;
+  font-size: 13px;
+  color: #333;
+}
+
+.legend-percentage {
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  min-width: 45px;
+  text-align: right;
+}
+
+.chart-title {
+  text-align: center;
+  margin-bottom: 15px;
+  font-size: 16px;
+  color: var(--accent-color, #4A90E2);
+}
+
+@keyframes growWidth {
+  from { width: 0; }
+  to { width: var(--width, 100%); }
+}
