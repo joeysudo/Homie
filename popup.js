@@ -1654,36 +1654,56 @@ When creating pros and cons:
       
       console.log("Forecast data:", forecastData);
       
-      // Calculate min and max values for the chart with some padding
-      // Use fixed percentage range to avoid vertical stretching
-      let minPrice = currentPrice * 0.95; // 5% below current price for visual margin
+      // SVG dimensions for the chart area
+      const chartHeight = 180;
+      const chartWidth = 400; 
+      const marginTop = 30;
+      const marginRight = 20;
+      const marginBottom = 10;
+      const marginLeft = 20;
       
-      // Calculate what the max price would be with a 3% annual growth over 20 years
-      // This creates a consistent scale regardless of the actual growth rate
-      const referenceMaxPrice = currentPrice * Math.pow(1 + 0.03, 20);
-      const maxPrice = Math.max(forecastData[forecastData.length - 1].price * 1.05, referenceMaxPrice); 
+      // Calculate min and max prices for the y-axis with padding
+      const minPrice = Math.floor(currentPrice * 0.95 / 10000) * 10000; // Round down to nearest $10k
+      const maxPriceCalculated = Math.max(
+        forecastData[forecastData.length - 1].price * 1.05, 
+        currentPrice * Math.pow(1 + 0.03, 20)
+      );
+      const maxPrice = Math.ceil(maxPriceCalculated / 10000) * 10000; // Round up to nearest $10k
       
+      // Create grid lines at nice round numbers
       const priceRange = maxPrice - minPrice;
+      const gridLineCount = 5;
+      const gridStepSize = priceRange / (gridLineCount - 1);
       
-      // Create a more modern Tailwind-inspired chart - removing redundant title
+      const gridLines = [];
+      for (let i = 0; i < gridLineCount; i++) {
+        const price = maxPrice - (i * gridStepSize);
+        gridLines.push({
+          price: price,
+          label: formatCurrency(price),
+          // Calculate the exact y position in the SVG based on the price
+          y: marginTop + (i * (chartHeight / (gridLineCount - 1)))
+        });
+      }
+      
+      // Create the chart HTML
       forecastChartContainer.innerHTML = `
         <div class="forecast-chart-modern">
           <div class="forecast-chart-content">
             <div class="forecast-chart-grid">
-              ${Array(5).fill(0).map((_, i) => {
-                const gridValue = maxPrice - (i * (priceRange / 4));
-                return `<div class="forecast-grid-line">
-                  <span class="forecast-grid-label">${formatCurrency(gridValue)}</span>
+              ${gridLines.map(line => `
+                <div class="forecast-grid-line" style="top: ${line.y}px;">
+                  <span class="forecast-grid-label">${line.label}</span>
                   <span class="forecast-grid-line-inner"></span>
-                </div>`;
-              }).join('')}
+                </div>
+              `).join('')}
             </div>
             
             <div class="forecast-chart-lines">
-              <svg width="100%" height="100%" viewBox="0 0 440 300" preserveAspectRatio="none">
+              <svg width="100%" height="100%" viewBox="0 0 ${chartWidth + marginLeft + marginRight} ${chartHeight + marginTop + marginBottom}">
                 <!-- Line connecting data points -->
                 <path 
-                  d="${generateSVGPathModern(forecastData, minPrice, maxPrice)}"
+                  d="${generateLinePath(forecastData)}"
                   stroke="rgba(59, 130, 246, 0.8)"
                   stroke-width="3"
                   fill="none"
@@ -1693,7 +1713,7 @@ When creating pros and cons:
                 
                 <!-- Gradient area under the line -->
                 <path
-                  d="${generateSVGAreaModern(forecastData, minPrice, maxPrice)}"
+                  d="${generateAreaPath(forecastData)}"
                   fill="url(#blue-gradient)"
                   opacity="0.2"
                 />
@@ -1706,15 +1726,20 @@ When creating pros and cons:
                   </linearGradient>
                 </defs>
                 
-                <!-- Data points -->
+                <!-- Data points with values -->
                 ${forecastData.map((point, index) => {
-                  const x = 20 + ((index / (forecastData.length - 1)) * 400);
-                  const y = 300 - ((point.price - minPrice) / priceRange) * 260;
+                  // Calculate x position based on index
+                  const x = marginLeft + (index * (chartWidth / (forecastData.length - 1)));
+                  
+                  // Calculate y position using the same formula as grid lines
+                  const normalizedPrice = (point.price - minPrice) / priceRange;
+                  const y = marginTop + chartHeight - (normalizedPrice * chartHeight);
+                  
                   return `
-                  <circle cx="${x}" cy="${y}" r="6" fill="white" stroke="rgb(59, 130, 246)" stroke-width="2" />
-                  <text x="${x}" y="${y - 15}" text-anchor="middle" font-size="11" fill="#333" class="forecast-label">
-                    ${formatCurrency(Math.round(point.price / 1000) * 1000)}
-                  </text>
+                    <circle cx="${x}" cy="${y}" r="6" fill="white" stroke="rgb(59, 130, 246)" stroke-width="2" />
+                    <text x="${x}" y="${y - 15}" text-anchor="middle" font-size="11" fill="#333" class="forecast-label">
+                      ${formatCurrency(Math.round(point.price / 1000) * 1000)}
+                    </text>
                   `;
                 }).join('')}
               </svg>
@@ -1739,7 +1764,7 @@ When creating pros and cons:
         </div>
       `;
       
-      // Add custom styles for the modern chart with improved dimensions
+      // Add custom styles for the modern chart
       const styleElement = document.createElement('style');
       styleElement.textContent = `
         .forecast-chart-modern {
@@ -1751,7 +1776,7 @@ When creating pros and cons:
         }
         .forecast-chart-content {
           position: relative;
-          height: 320px; /* Increased height to ensure content is fully visible */
+          height: 240px;
           margin-bottom: 1.5rem;
         }
         .forecast-chart-grid {
@@ -1760,13 +1785,10 @@ When creating pros and cons:
           left: 0;
           width: 100%;
           height: 100%;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
           z-index: 1;
         }
         .forecast-grid-line {
-          position: relative;
+          position: absolute;
           width: 100%;
           display: flex;
           align-items: center;
@@ -1805,11 +1827,6 @@ When creating pros and cons:
           align-items: center;
           text-align: center;
         }
-        .forecast-point-value {
-          font-weight: 600;
-          font-size: 0.875rem;
-          color: #1f2937;
-        }
         .forecast-point-growth {
           font-size: 0.75rem;
           color: #6b7280;
@@ -1836,50 +1853,62 @@ When creating pros and cons:
           color: #9ca3af;
           margin-top: 0.25rem;
         }
-        /* Make sure the section height is adequate but not excessive */
         #priceForecastChart {
-          min-height: 450px; /* Increased min-height to ensure content is fully displayed */
+          min-height: 350px;
         }
       `;
       document.head.appendChild(styleElement);
+      
+      // Helper function to generate SVG path for the line
+      function generateLinePath(data) {
+        let path = '';
+        
+        data.forEach((point, index) => {
+          const x = marginLeft + (index * (chartWidth / (data.length - 1)));
+          const normalizedPrice = (point.price - minPrice) / priceRange;
+          const y = marginTop + chartHeight - (normalizedPrice * chartHeight);
+          
+          if (index === 0) {
+            path += `M ${x} ${y}`;
+          } else {
+            path += ` L ${x} ${y}`;
+          }
+        });
+        
+        return path;
+      }
+      
+      // Helper function to generate SVG path for the area under the line
+      function generateAreaPath(data) {
+        let path = '';
+        
+        // Start at the first point
+        const firstX = marginLeft;
+        const firstNormalizedPrice = (data[0].price - minPrice) / priceRange;
+        const firstY = marginTop + chartHeight - (firstNormalizedPrice * chartHeight);
+        path += `M ${firstX} ${firstY}`;
+        
+        // Add line segments for each point
+        data.forEach((point, index) => {
+          if (index > 0) {
+            const x = marginLeft + (index * (chartWidth / (data.length - 1)));
+            const normalizedPrice = (point.price - minPrice) / priceRange;
+            const y = marginTop + chartHeight - (normalizedPrice * chartHeight);
+            path += ` L ${x} ${y}`;
+          }
+        });
+        
+        // Complete the path by going to the bottom right, bottom left, and back to start
+        const lastX = marginLeft + chartWidth;
+        const bottomY = marginTop + chartHeight;
+        path += ` L ${lastX} ${bottomY} L ${marginLeft} ${bottomY} Z`;
+        
+        return path;
+      }
     }
     
     // Initialize the chart with default or available data
     generateAndDisplayChart();
-    
-    // Helper function to generate SVG path for the line
-    function generateSVGPathModern(data, minPrice, maxPrice) {
-      const range = maxPrice - minPrice;
-      const points = data.map((point, index) => {
-        const x = 20 + ((index / (data.length - 1)) * 400);
-        const y = 300 - ((point.price - minPrice) / range) * 260;
-        return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
-      });
-      return points.join(' ');
-    }
-    
-    // Helper function to generate SVG path for the area under the line
-    function generateSVGAreaModern(data, minPrice, maxPrice) {
-      const range = maxPrice - minPrice;
-      let path = '';
-      
-      // Move to the first point
-      const firstX = 20;
-      const firstY = 300 - ((data[0].price - minPrice) / range) * 260;
-      path += `M ${firstX} ${firstY}`;
-      
-      // Add line segments to each point
-      for (let i = 0; i < data.length; i++) {
-        const x = 20 + ((i / (data.length - 1)) * 400);
-        const y = 300 - ((data[i].price - minPrice) / range) * 260;
-        path += ` L ${x} ${y}`;
-      }
-      
-      // Complete the path by going to the bottom right, then bottom left, then back to start
-      path += ` L 420 300 L 20 300 Z`;
-      
-      return path;
-    }
   }
 
   // Create rental return visualization with fallback data
@@ -3013,6 +3042,13 @@ When creating pros and cons:
   document.title = 'Homira';
   const headerEl = document.querySelector('.header h1');
   if (headerEl) headerEl.textContent = 'Homira';
+
+  // Additional elements that might need updating
+  const logoAlt = document.querySelector('img.logo-image');
+  if (logoAlt) logoAlt.alt = 'Homira Logo';
+  
+  const loaderIcon = document.querySelector('img.loader-icon');
+  if (loaderIcon) loaderIcon.alt = 'Homira';
 
   // Function to visualize school data
   function displaySchoolData(schoolData) {

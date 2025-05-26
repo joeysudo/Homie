@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Homie",
+  "name": "Homira",
   "version": "1.0",
   "description": "AI-powered real estate analysis for properties on realestate.com.au",
   "permissions": ["activeTab", "storage", "scripting", "contextMenus", "windows"],

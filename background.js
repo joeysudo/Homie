@@ -1,8 +1,16 @@
-// Background script for Homie extension
+// Background script for Homira extension
 
-// Listen for installation
+// Listen for install event
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('Homie extension installed!');
+  console.log('Homira extension installed!');
+  
+  // Create context menu item
+  chrome.contextMenus.create({
+    id: 'analyzeProperty',
+    contexts: ['page'],
+    documentUrlPatterns: ['https://www.realestate.com.au/property-*'],
+    title: 'Analyze this property with Homira',
+  });
 });
 
 // Global state to track our popup window
@@ -70,35 +78,43 @@ function createNewWindow() {
 }
 
 // Listen for messages from popup
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'openInWindow') {
-    // Open the popup in a separate window
-    openPopupWindow();
-    sendResponse({ success: true });
-  } else if (message.action === 'closePopup') {
-    // If message is from a window we opened, close it
-    if (popupWindow && popupWindow.id) {
-      try {
-        chrome.windows.remove(popupWindow.id, function() {
-          if (chrome.runtime.lastError) {
-            console.error('Error closing window:', chrome.runtime.lastError);
-          }
-          popupWindow = null;
-        });
-      } catch (e) {
-        console.error('Error in closePopup:', e);
-        popupWindow = null;
-      }
-    }
-    sendResponse({ success: true });
-  } else if (message.action === 'getPropertyData') {
-    // Return any stored property data
-    chrome.storage.session.get('currentPropertyData', (data) => {
-      sendResponse({ propertyData: data.currentPropertyData || null });
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+  if (request.action === 'getPropertyData') {
+    // Get temp property data
+    chrome.storage.local.get(['tempPropertyData'], function(result) {
+      // Clear temp property data after sending it
+      chrome.storage.local.remove(['tempPropertyData']);
+      
+      // Send response with property data
+      sendResponse({ propertyData: result.tempPropertyData || null });
     });
-    return true; // Keep channel open for async response
+    
+    // Return true to indicate async response
+    return true;
+  } else if (request.action === 'openInWindow') {
+    // Open extension in separate window
+    chrome.windows.create({
+      url: chrome.runtime.getURL('popup.html'),
+      type: 'popup',
+      width: 500,
+      height: 700
+    }, function(window) {
+      // Store window id for later reference
+      chrome.storage.local.set({ popupWindowId: window.id });
+      sendResponse({ success: true });
+    });
+    
+    // Return true to indicate async response
+    return true;
+  } else if (request.action === 'closePopup') {
+    // Get window id
+    chrome.storage.local.get(['popupWindowId'], function(result) {
+      if (result.popupWindowId) {
+        // Close the window
+        chrome.windows.remove(result.popupWindowId);
+      }
+    });
   }
-  return true; // Keep the message channel open for async response
 });
 
 // Handle context menu clicks
