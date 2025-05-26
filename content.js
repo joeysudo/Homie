@@ -465,6 +465,14 @@ function extractNumber(selector) {
 }
 
 function extractLandSize() {
+  // UPDATED 2024: Improved land size extraction to handle new realestate.com.au structures
+  // This function tries multiple methods to extract land size:
+  // 1. Direct DOM selectors
+  // 2. Feature list pattern matching
+  // 3. ArgonautExchange data extraction (JSON)
+  // 4. Description text mining
+  // See LAND_SIZE_EXTRACTION.md for detailed documentation
+  
   // Try different selectors for land size
   const landSizeSelectors = [
     '[data-testid="property-features-feature-land-size"] .property-features__feature-text',
@@ -473,14 +481,106 @@ function extractLandSize() {
     '[data-testid="property-features__land-size"]',
     '[class*="landSizeFeature"]',
     '[class*="property-features"] [class*="land"]',
-    '[class*="property-features"] [class*="size"]'
+    '[class*="property-features"] [class*="size"]',
+    // New selectors based on modern structure
+    '[class*="Text_Typography"][aria-label*="land size"]',
+    '[class*="Text_Typography"][aria-label*="Land size"]',
+    'li[data-testid*="land-size"]',
+    'li[data-testid*="Land size"]'
   ];
   
+  // Try standard selectors first
   for (const selector of landSizeSelectors) {
     const element = document.querySelector(selector);
     if (element && element.textContent.trim()) {
       return element.textContent.trim();
     }
+  }
+  
+  // Check in property feature elements
+  // Look for the modern structure with "Land size" feature
+  const featureItems = document.querySelectorAll('li[class*="feature"], li[class*="Feature"], [class*="FeatureListItem"]');
+  for (const item of featureItems) {
+    const text = item.textContent.toLowerCase();
+    if (text.includes('land size') || text.includes('land area') || text.includes('block size')) {
+      return item.textContent.replace(/land size|land area|block size/i, '').trim();
+    }
+  }
+  
+  // Try to find in the structured data JSON
+  try {
+    const scriptElements = document.querySelectorAll('script[type="application/ld+json"]');
+    for (const script of scriptElements) {
+      const jsonData = JSON.parse(script.textContent);
+      if (jsonData && jsonData.floorSize && jsonData.floorSize.value) {
+        return `${jsonData.floorSize.value} ${jsonData.floorSize.unitText || ''}`;
+      }
+    }
+  } catch (e) {
+    console.log("Error parsing JSON-LD:", e);
+  }
+  
+  // Try to find in ArgonautExchange data (modern realestate.com.au)
+  try {
+    const scriptElements = document.querySelectorAll('script');
+    for (const script of scriptElements) {
+      if (script.textContent.includes('window.ArgonautExchange')) {
+        const argonautMatch = script.textContent.match(/window\.ArgonautExchange\s*=\s*(\{.+\});/);
+        if (argonautMatch) {
+          const argonautData = JSON.parse(argonautMatch[1]);
+          
+          // Navigate through the complex structure to find property features
+          if (argonautData && 
+              argonautData['resi-property_listing-experience-web'] && 
+              argonautData['resi-property_listing-experience-web'].urqlClientCache) {
+            
+            const urqlData = JSON.parse(argonautData['resi-property_listing-experience-web'].urqlClientCache);
+            
+            // Find the first key that contains property data
+            for (const key in urqlData) {
+              if (urqlData[key].data) {
+                try {
+                  const listingData = JSON.parse(urqlData[key].data);
+                  
+                  // Check for land size in propertyFeatures
+                  if (listingData.details && 
+                      listingData.details.listing && 
+                      listingData.details.listing.propertyFeatures) {
+                    
+                    const features = listingData.details.listing.propertyFeatures;
+                    for (const feature of features) {
+                      if (feature.featureName === "Land size" && feature.value) {
+                        // Format: displayValue + sizeUnit (e.g. "336 m²")
+                        if (feature.value.displayValue && feature.value.sizeUnit) {
+                          return `${feature.value.displayValue} ${feature.value.sizeUnit.displayValue}`;
+                        }
+                        return feature.value.toString();
+                      }
+                    }
+                  }
+                  
+                  // Check for land size in propertySizes
+                  if (listingData.details && 
+                      listingData.details.listing && 
+                      listingData.details.listing.propertySizes && 
+                      listingData.details.listing.propertySizes.land) {
+                    
+                    const land = listingData.details.listing.propertySizes.land;
+                    if (land.displayValue && land.sizeUnit) {
+                      return `${land.displayValue} ${land.sizeUnit.displayValue}`;
+                    }
+                  }
+                } catch (e) {
+                  console.log("Error parsing listing data:", e);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.log("Error parsing Argonaut data:", e);
   }
   
   // If standard selectors fail, search for elements containing "land", "size", "sqm", "m²" or "acre"

@@ -104,17 +104,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'analyze-property') {
-    chrome.tabs.sendMessage(tab.id, { action: 'extractPropertyData' }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error(chrome.runtime.lastError);
-        return;
-      }
+    // First check if we have cached analysis for this URL
+    const propertyUrl = tab.url;
+    
+    chrome.storage.local.get(['cachedPropertyAnalyses'], function(result) {
+      const cachedPropertyAnalyses = result.cachedPropertyAnalyses || {};
       
-      if (response && response.propertyData) {
-        // Store the data temporarily
-        chrome.storage.session.set({ 'currentPropertyData': response.propertyData }, () => {
+      if (cachedPropertyAnalyses[propertyUrl]) {
+        console.log("Using cached property analysis from context menu");
+        
+        // Use the cached data
+        chrome.storage.session.set({ 
+          'currentPropertyData': cachedPropertyAnalyses[propertyUrl].propertyData 
+        }, () => {
           // Open in a separate window that won't close on outside clicks
           openPopupWindow();
+        });
+      } else {
+        // No cached data, extract from page
+        chrome.tabs.sendMessage(tab.id, { action: 'extractPropertyData' }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error(chrome.runtime.lastError);
+            return;
+          }
+          
+          if (response && response.propertyData) {
+            // Store the data temporarily
+            chrome.storage.session.set({ 'currentPropertyData': response.propertyData }, () => {
+              // Open in a separate window that won't close on outside clicks
+              openPopupWindow();
+            });
+          }
         });
       }
     });

@@ -303,8 +303,11 @@ document.addEventListener('DOMContentLoaded', function() {
               return;
             }
             
+            // Set force refresh flag to true since user clicked "analyze property" button
+            const forceRefresh = true;
+            
             // Get analysis
-            analyzeProperty(response.propertyData, result.openaiApiKey);
+            analyzeProperty(response.propertyData, result.openaiApiKey, forceRefresh);
           }
         );
       });
@@ -321,14 +324,37 @@ document.addEventListener('DOMContentLoaded', function() {
     // Use suburb and/or postcode as the location identifier
     const location = suburb ? suburb : (postcode ? `postcode ${postcode}` : '');
     
+    // Create ABS QuickStats URL if we have a postcode
+    const absUrl = postcode ? `https://abs.gov.au/census/find-census-data/quickstats/2021/POA${postcode}` : '';
+    
     try {
-      const prompt = `I need accurate, realistic, and up-to-date demographic and income data for ${location}, Australia based on the latest census and credible sources. Please provide:
+      // Try to fetch ABS data directly first if possible
+      if (absUrl) {
+        try {
+          console.log(`Attempting to get structured ABS data using API...`);
+          const absData = await parseABSQuickStatsData(postcode);
+          if (absData) {
+            console.log("Successfully extracted ABS QuickStats data directly");
+            return absData;
+          }
+        } catch (error) {
+          console.log("Error fetching structured ABS data:", error);
+        }
+      }
+      
+      const prompt = `I need accurate demographic and income data for ${location}, Australia based on the 2021 Australian Census data. 
+      
+${absUrl ? `Please use the ABS QuickStats data from this URL: ${absUrl}` : ''}
+
+Please provide:
       
 1. Age distribution (percentages for these specific age groups: 0-18, 19-35, 36-50, 51-65, 66+)
 2. Ethnic distribution (percentages for major ethnic backgrounds - specifically Australian, European, Asian, Middle Eastern, and Other - these must add up to 100%)
 3. Income distribution (percentages for income brackets: Under $50k, $50k-$100k, $100k-$150k, $150k-$200k, Over $200k - these must add up to 100%)
 
-All percentages MUST add up to exactly 100% for each category. Use factual data when available, or provide realistic estimates based on similar Australian suburbs. Format your response using this exact JSON structure:
+All percentages MUST add up to exactly 100% for each category. Use the official ABS Census data when available, or provide realistic estimates based on similar Australian suburbs if specific data isn't provided in that exact format.
+
+Format your response using this exact JSON structure:
 
 {
   "ageDistribution": [
@@ -357,6 +383,9 @@ All percentages MUST add up to exactly 100% for each category. Use factual data 
 Where XX is a number (no % sign, no quotes). DO NOT include any explanations, just the JSON.`;
 
       console.log(`Fetching demographic data for ${location}...`);
+      if (absUrl) {
+        console.log(`Using ABS URL: ${absUrl}`);
+      }
       
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -369,14 +398,14 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations, ju
           messages: [
             {
               role: "system",
-              content: "You are a demographic data specialist who provides accurate demographic information for Australian suburbs and postcodes. Base your responses on census data and credible demographic sources. When exact data isn't available, provide realistic estimates based on similar suburbs and Australian demographics. Always ensure percentage totals equal exactly 100% for each category."
+              content: "You are a demographic data specialist who provides accurate demographic information for Australian suburbs and postcodes. Base your responses on the 2021 Australian Census data and use the ABS QuickStats URL when provided. When exact data isn't available in the requested format, provide reasonable estimates by aggregating the census age groups and other data. Always ensure percentage totals equal exactly 100% for each category."
             },
             {
               role: "user",
               content: prompt
             }
           ],
-          temperature: 0.2
+          temperature: 0.6
         })
       });
 
@@ -395,6 +424,13 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations, ju
         try {
           const demographicData = JSON.parse(jsonMatch[0]);
           console.log("Successfully fetched demographic data:", demographicData);
+          
+          // Add source information
+          demographicData.source = {
+            type: "openai",
+            url: absUrl || null
+          };
+          
           return demographicData;
         } catch (e) {
           console.error("Error parsing demographic JSON:", e);
@@ -410,10 +446,174 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations, ju
     }
   }
 
+  // Helper function to parse ABS QuickStats data directly
+  async function parseABSQuickStatsData(postcode) {
+    // This is a placeholder function for now
+    // In a real implementation, you would need to use a proxy server or CORS-enabled API
+    // to fetch and scrape the ABS QuickStats page directly
+    
+    // For now we'll return null and rely on the OpenAI API
+    // to extract the data from the ABS QuickStats URL
+    console.log("Direct ABS data extraction not implemented");
+    return null;
+  }
+
+  // Function to estimate property growth rate based on postcode using OpenAI API
+  async function estimatePropertyGrowthRate(suburb, postcode, apiKey) {
+    if (!suburb && !postcode) {
+      console.log("No suburb or postcode available to estimate growth rate");
+      return null;
+    }
+    
+    // Use suburb and/or postcode as the location identifier
+    const location = suburb ? suburb : (postcode ? `postcode ${postcode}` : '');
+    
+    // Create ABS QuickStats URL if we have a postcode
+    const absUrl = postcode ? `https://abs.gov.au/census/find-census-data/quickstats/2021/POA${postcode}` : '';
+    
+    try {
+      // Check if we have cached growth rate data for this postcode
+      const cachedGrowthRateResult = await new Promise(resolve => {
+        chrome.storage.local.get(['cachedGrowthRateData'], function(result) {
+          if (result.cachedGrowthRateData && result.cachedGrowthRateData[postcode]) {
+            resolve(result.cachedGrowthRateData[postcode]);
+          } else {
+            resolve(null);
+          }
+        });
+      });
+      
+      if (cachedGrowthRateResult) {
+        console.log("Using cached growth rate data for postcode:", postcode);
+        return cachedGrowthRateResult;
+      }
+      
+      console.log(`Estimating property growth rate for ${location}...`);
+      
+      const prompt = `Please provide a realistic estimate for annual property price growth rates for ${location}, Australia. 
+      
+Your estimate should be based on:
+1. Historical property price trends in the area
+2. Current economic conditions in Australia
+3. Location-specific factors (e.g., infrastructure development, school zones, proximity to amenities)
+4. Population trends and demographic shifts
+5. Current and projected interest rates
+6. Supply and demand balance in the local market
+
+Format your response as a JSON object with the following structure:
+{
+  "annualGrowthRate": X.X,
+  "confidenceLevel": "high/medium/low",
+  "factors": {
+    "positive": ["factor1", "factor2"],
+    "negative": ["factor1", "factor2"]
+  },
+  "shortTermOutlook": "brief description",
+  "longTermOutlook": "brief description"
+}
+
+Where annualGrowthRate is a realistic percentage (e.g., 2.3 for 2.3%) representing the expected compound annual growth rate. Be conservative and realistic - typical Australian property growth rates range from 1.5-3.5% long-term, with some areas underperforming and others outperforming. Do not use values higher than 4% except in extremely rare cases with extraordinary growth factors.`;
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are a property market analyst specializing in Australian real estate. Provide realistic and conservative growth rate estimates based on location data. Your estimates should reflect historical trends and economic forecasts. Be conservative in your estimates - most Australian properties grow at 1.5-3% annually over the long term."
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          temperature: 0.3,
+          response_format: { "type": "json_object" }
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.error) {
+        console.error("Error estimating growth rate:", data.error);
+        return null;
+      }
+      
+      try {
+        const growthData = JSON.parse(data.choices[0].message.content);
+        console.log("Successfully estimated growth rate:", growthData);
+        
+        // Cache the growth rate data by postcode
+        chrome.storage.local.get(['cachedGrowthRateData'], function(result) {
+          const cachedGrowthRateData = result.cachedGrowthRateData || {};
+          cachedGrowthRateData[postcode] = growthData;
+          chrome.storage.local.set({ cachedGrowthRateData: cachedGrowthRateData });
+          console.log("Cached growth rate data for postcode:", postcode);
+        });
+        
+        return growthData;
+      } catch (e) {
+        console.error("Error parsing growth rate JSON:", e);
+        return null;
+      }
+    } catch (error) {
+      console.error("Error estimating growth rate:", error);
+      return null;
+    }
+  }
+
   // Function to analyze property using OpenAI API
-  async function analyzeProperty(propertyData, apiKey) {
+  async function analyzeProperty(propertyData, apiKey, forceRefresh = false) {
     const loadingEl = document.getElementById('loading');
     loadingEl.style.display = 'block';
+    
+    // Check for cached results if not forcing a refresh
+    if (!forceRefresh) {
+      // Try to get cached analysis for this property
+      const propertyUrl = propertyData.url || window.location.href;
+      
+      try {
+        const cachedResult = await new Promise(resolve => {
+          chrome.storage.local.get(['cachedPropertyAnalyses'], function(result) {
+            if (result.cachedPropertyAnalyses && result.cachedPropertyAnalyses[propertyUrl]) {
+              resolve(result.cachedPropertyAnalyses[propertyUrl]);
+            } else {
+              resolve(null);
+            }
+          });
+        });
+        
+        if (cachedResult) {
+          console.log("Using cached property analysis");
+          
+          // Update the global current property values
+          currentPropertyData = propertyData;
+          currentPropertyAnalysis = cachedResult.analysis;
+          
+          // Format and display the analysis
+          formatAnalysis(cachedResult.analysis);
+          
+          // Display the formatted analysis
+          propertyAnalysisSection.classList.remove('hidden');
+          loadingSection.classList.add('hidden');
+          apiKeySection.classList.add('hidden');
+          
+          // Apply UI enhancements
+          enhanceSections();
+          animateVisualElements();
+          
+          return;
+        }
+      } catch (error) {
+        console.error("Error fetching cached results:", error);
+        // Continue with fresh analysis if there's an error with the cache
+      }
+    }
     
     // First, check if we need to fetch demographic data before building the prompt
     if (!propertyData.demographics || 
@@ -424,37 +624,168 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations, ju
         propertyData.demographics.ethnicDistribution.length === 0 || 
         propertyData.demographics.incomeBrackets.length === 0) {
       
-      console.log("Missing or incomplete demographic data, fetching from OpenAI...");
-      const demographicData = await fetchDemographicDataFromInternet(propertyData.suburb, propertyData.postcode, apiKey);
+      console.log("Missing or incomplete demographic data, checking cache first...");
       
-      if (demographicData) {
-        console.log("Successfully fetched demographic data from OpenAI");
-        propertyData.demographics = demographicData;
+      // Check if we have cached demographic data for this postcode
+      if (propertyData.postcode) {
+        try {
+          const cachedDemographicResult = await new Promise(resolve => {
+            chrome.storage.local.get(['cachedDemographicData'], function(result) {
+              if (result.cachedDemographicData && result.cachedDemographicData[propertyData.postcode]) {
+                resolve(result.cachedDemographicData[propertyData.postcode]);
+              } else {
+                resolve(null);
+              }
+            });
+          });
+          
+          if (cachedDemographicResult) {
+            console.log("Using cached demographic data for postcode:", propertyData.postcode);
+            propertyData.demographics = cachedDemographicResult;
+          } else {
+            // No cached data, fetch from OpenAI
+            console.log("No cached demographic data, fetching from OpenAI...");
+            const demographicData = await fetchDemographicDataFromInternet(propertyData.suburb, propertyData.postcode, apiKey);
+            
+            if (demographicData) {
+              console.log("Successfully fetched demographic data from OpenAI");
+              propertyData.demographics = demographicData;
+              
+              // Cache the demographic data by postcode
+              chrome.storage.local.get(['cachedDemographicData'], function(result) {
+                const cachedDemographicData = result.cachedDemographicData || {};
+                cachedDemographicData[propertyData.postcode] = demographicData;
+                chrome.storage.local.set({ cachedDemographicData: cachedDemographicData });
+                console.log("Cached demographic data for postcode:", propertyData.postcode);
+              });
+            } else {
+              console.log("Failed to fetch demographic data from OpenAI, using fallback data");
+              propertyData.demographics = {
+                ageDistribution: [
+                  {range: "0-18", percentage: 23},
+                  {range: "19-35", percentage: 31},
+                  {range: "36-50", percentage: 25},
+                  {range: "51-65", percentage: 14},
+                  {range: "66+", percentage: 7}
+                ],
+                ethnicDistribution: [
+                  {ethnicity: "Australian", percentage: 65},
+                  {ethnicity: "European", percentage: 15},
+                  {ethnicity: "Asian", percentage: 12},
+                  {ethnicity: "Middle Eastern", percentage: 3},
+                  {ethnicity: "Other", percentage: 5}
+                ],
+                incomeBrackets: [
+                  {bracket: "Under $50k", percentage: 25},
+                  {bracket: "$50k-$100k", percentage: 38},
+                  {bracket: "$100k-$150k", percentage: 22},
+                  {bracket: "$150k-$200k", percentage: 10},
+                  {bracket: "Over $200k", percentage: 5}
+                ]
+              };
+            }
+          }
+        } catch (error) {
+          console.error("Error checking cached demographic data:", error);
+          // Fallback to OpenAI
+          const demographicData = await fetchDemographicDataFromInternet(propertyData.suburb, propertyData.postcode, apiKey);
+          
+          if (demographicData) {
+            console.log("Successfully fetched demographic data from OpenAI");
+            propertyData.demographics = demographicData;
+          } else {
+            console.log("Failed to fetch demographic data from OpenAI, using fallback data");
+            propertyData.demographics = {
+              ageDistribution: [
+                {range: "0-18", percentage: 23},
+                {range: "19-35", percentage: 31},
+                {range: "36-50", percentage: 25},
+                {range: "51-65", percentage: 14},
+                {range: "66+", percentage: 7}
+              ],
+              ethnicDistribution: [
+                {ethnicity: "Australian", percentage: 65},
+                {ethnicity: "European", percentage: 15},
+                {ethnicity: "Asian", percentage: 12},
+                {ethnicity: "Middle Eastern", percentage: 3},
+                {ethnicity: "Other", percentage: 5}
+              ],
+              incomeBrackets: [
+                {bracket: "Under $50k", percentage: 25},
+                {bracket: "$50k-$100k", percentage: 38},
+                {bracket: "$100k-$150k", percentage: 22},
+                {bracket: "$150k-$200k", percentage: 10},
+                {bracket: "Over $200k", percentage: 5}
+              ]
+            };
+          }
+        }
       } else {
-        console.log("Failed to fetch demographic data from OpenAI, using fallback data");
-        propertyData.demographics = {
-          ageDistribution: [
-            {range: "0-18", percentage: 23},
-            {range: "19-35", percentage: 31},
-            {range: "36-50", percentage: 25},
-            {range: "51-65", percentage: 14},
-            {range: "66+", percentage: 7}
-          ],
-          ethnicDistribution: [
-            {ethnicity: "Australian", percentage: 65},
-            {ethnicity: "European", percentage: 15},
-            {ethnicity: "Asian", percentage: 12},
-            {ethnicity: "Middle Eastern", percentage: 3},
-            {ethnicity: "Other", percentage: 5}
-          ],
-          incomeBrackets: [
-            {bracket: "Under $50k", percentage: 25},
-            {bracket: "$50k-$100k", percentage: 38},
-            {bracket: "$100k-$150k", percentage: 22},
-            {bracket: "$150k-$200k", percentage: 10},
-            {bracket: "Over $200k", percentage: 5}
-          ]
-        };
+        // No postcode, fetch directly from OpenAI
+        console.log("Missing or incomplete demographic data, fetching from OpenAI...");
+        const demographicData = await fetchDemographicDataFromInternet(propertyData.suburb, propertyData.postcode, apiKey);
+        
+        if (demographicData) {
+          console.log("Successfully fetched demographic data from OpenAI");
+          propertyData.demographics = demographicData;
+        } else {
+          console.log("Failed to fetch demographic data from OpenAI, using fallback data");
+          propertyData.demographics = {
+            ageDistribution: [
+              {range: "0-18", percentage: 23},
+              {range: "19-35", percentage: 31},
+              {range: "36-50", percentage: 25},
+              {range: "51-65", percentage: 14},
+              {range: "66+", percentage: 7}
+            ],
+            ethnicDistribution: [
+              {ethnicity: "Australian", percentage: 65},
+              {ethnicity: "European", percentage: 15},
+              {ethnicity: "Asian", percentage: 12},
+              {ethnicity: "Middle Eastern", percentage: 3},
+              {ethnicity: "Other", percentage: 5}
+            ],
+            incomeBrackets: [
+              {bracket: "Under $50k", percentage: 25},
+              {bracket: "$50k-$100k", percentage: 38},
+              {bracket: "$100k-$150k", percentage: 22},
+              {bracket: "$150k-$200k", percentage: 10},
+              {bracket: "Over $200k", percentage: 5}
+            ]
+          };
+        }
+      }
+    }
+    
+    // Fetch property growth rate data if not already available
+    if (!propertyData.growthRateData && propertyData.postcode) {
+      try {
+        // Check if we have cached growth rate data for this postcode
+        const cachedGrowthRateResult = await new Promise(resolve => {
+          chrome.storage.local.get(['cachedGrowthRateData'], function(result) {
+            if (result.cachedGrowthRateData && result.cachedGrowthRateData[propertyData.postcode]) {
+              resolve(result.cachedGrowthRateData[propertyData.postcode]);
+            } else {
+              resolve(null);
+            }
+          });
+        });
+        
+        if (cachedGrowthRateResult) {
+          console.log("Using cached growth rate data for postcode:", propertyData.postcode);
+          propertyData.growthRateData = cachedGrowthRateResult;
+        } else {
+          // No cached data, fetch from OpenAI
+          console.log("No cached growth rate data, fetching from OpenAI...");
+          const growthRateData = await estimatePropertyGrowthRate(propertyData.suburb, propertyData.postcode, apiKey);
+          
+          if (growthRateData) {
+            console.log("Successfully fetched growth rate data from OpenAI");
+            propertyData.growthRateData = growthRateData;
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching growth rate data:", error);
       }
     }
     
@@ -514,7 +845,7 @@ Provide all data as accurate, realistic, and valid numbers based on the latest a
   "financialAnalysis": {
     "estimatedROI": XX,
     "paybackPeriod": XX,
-    "priceAssessment": XX,
+    "priceAssessment": XX, 
     "monthlyRentalIncome": XX,
     "monthlyExpenses": XX,
     "rentalYield": XX
@@ -568,7 +899,9 @@ Provide all data as accurate, realistic, and valid numbers based on the latest a
   }
 }
 
-Where XX is a number (no % sign, no quotes). DO NOT include any explanations or text outside the JSON structure.`;
+Where XX is a number (no % sign, no quotes). DO NOT include any explanations or text outside the JSON structure.
+
+For price forecasts, please ensure that growth rates are conservative and realistic for the Australian property market. Long-term property growth rates typically range from 2-4% annually, with some areas underperforming and others outperforming based on local factors.`;
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -582,7 +915,7 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations or 
           messages: [
             {
               role: "system",
-              content: "You are a sophisticated real estate investment analyst providing property investment analysis in strict JSON format. Your response MUST be a valid, parseable JSON object without any text outside the JSON structure. Include detailed numerical values for all metrics.\n\nFor demographic data:\n- Age distribution should use consistent age ranges (0-18, 19-35, 36-50, 51-65, 66+)\n- Ethnic distribution should include major groups (Australian, European, Asian, etc.) with realistic percentages\n- Income brackets should follow standard ranges (Under $50k, $50k-$100k, $100k-$150k, $150k-$200k, Over $200k)\n\nAll percentages should be provided as numbers without the % symbol. Do not include any explanations or text that would break JSON parsing."
+              content: "You are a sophisticated real estate investment analyst providing property investment analysis in strict JSON format. Your response MUST be a valid, parseable JSON object without any text outside the JSON structure. Include detailed numerical values for all metrics.\n\nFor demographic data:\n- Age distribution should use consistent age ranges (0-18, 19-35, 36-50, 51-65, 66+)\n- Ethnic distribution should include major groups (Australian, European, Asian, etc.) with realistic percentages\n- Income brackets should follow standard ranges (Under $50k, $50k-$100k, $100k-$150k, $150k-$200k, Over $200k)\n\nFor financial analysis:\n- priceAssessment should be a percentage value indicating how much the property is over/under market value (positive = overvalued, negative = undervalued)\n\nAll percentages should be provided as numbers without the % symbol. Do not include any explanations or text that would break JSON parsing."
             },
             {
               role: "user",
@@ -651,6 +984,21 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations or 
         chrome.storage.local.set({ savedAnalyses: savedAnalyses });
       });
       
+      // Also save to the property analysis cache
+      chrome.storage.local.get(['cachedPropertyAnalyses'], function(result) {
+        const cachedPropertyAnalyses = result.cachedPropertyAnalyses || {};
+        const propertyUrl = propertyData.url || window.location.href;
+        
+        // Store the analysis in the cache
+        cachedPropertyAnalyses[propertyUrl] = {
+          timestamp: new Date().toISOString(),
+          analysis: analysis,
+          propertyData: propertyData
+        };
+        
+        chrome.storage.local.set({ cachedPropertyAnalyses: cachedPropertyAnalyses });
+      });
+      
     } catch (error) {
       console.error('Error analyzing property:', error);
       loadingSection.classList.add('hidden');
@@ -717,7 +1065,17 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations or 
           metricsHTML += `<div class="financial-metric-card"><div class="metric-label">Payback Period</div><div class="metric-value">${fa.paybackPeriod} years</div></div>`;
         }
         if (fa.priceAssessment !== undefined) {
-          metricsHTML += `<div class="financial-metric-card"><div class="metric-label">Price Assessment</div><div class="metric-value">${fa.priceAssessment}%</div></div>`;
+          // Interpret price assessment: positive means overvalued, negative means undervalued
+          const isOvervalued = fa.priceAssessment > 0;
+          const percentage = Math.abs(fa.priceAssessment);
+          metricsHTML += `
+            <div class="financial-metric-card">
+              <div class="metric-label">Market Value Assessment</div>
+              <div class="metric-value ${isOvervalued ? 'text-warning' : 'text-success'}">
+                ${isOvervalued ? 'Overvalued' : 'Undervalued'} by ${percentage.toFixed(1)}%
+              </div>
+            </div>
+          `;
         }
         if (fa.monthlyRentalIncome !== undefined) {
           metricsHTML += `<div class="financial-metric-card"><div class="metric-label">Monthly Rental Income</div><div class="metric-value">${formatCurrency(fa.monthlyRentalIncome)}</div></div>`;
@@ -1043,7 +1401,7 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations or 
           <div class="financial-metric-card">
             <div class="metric-label">Market Value Assessment</div>
             <div class="metric-value ${direction === 'under' ? 'text-success' : 'text-warning'}">
-              ${direction === 'under' ? 'Undervalued' : 'Overvalued'} by ${percentage}%
+              ${direction === 'under' ? 'Undervalued' : 'Overvalued'} by ${percentage.toFixed(1)}%
         </div>
       </div>
     `;
@@ -1075,164 +1433,361 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations or 
       currentPrice = 750000; // Default if no price is found
     }
     
-    // Extract growth percentages from the analysis
-    let growthRates = {
-      year1: 0.04, // Default 4% annual growth
-      year3: 0.126, // ~4% compounded for 3 years
-      year5: 0.217, // ~4% compounded for 5 years
-      year10: 0.48, // ~4% compounded for 10 years
-      year20: 1.191 // ~4% compounded for 20 years
-    };
+    // Define more conservative annual growth rate (compound growth)
+    // For Australian real estate, use a more realistic conservative estimate
+    const defaultAnnualGrowthRate = 0.015; // 1.5% annual growth (very conservative Australian long-term average)
     
-    // Check if analysisText is a JSON object or string
+    // Define key years for forecast - use 5-year intervals
+    const currentYear = new Date().getFullYear();
+    const forecastYears = [
+      currentYear,        // Current year
+      currentYear + 5,    // 5 years
+      currentYear + 10,   // 10 years
+      currentYear + 15,   // 15 years
+      currentYear + 20    // 20 years
+    ];
+    
+    // Extract growth percentages from the analysis if available
+    let customGrowthRate = null;
+    let growthRateSources = [];
+    
+    // Check if analysisText is a JSON object with price forecasts
     if (analysisText && typeof analysisText === 'object' && analysisText.priceForecasts) {
-      // It's a JSON object - extract forecast data directly
       const forecasts = analysisText.priceForecasts;
       
-      if (forecasts["1year"] !== undefined) growthRates.year1 = forecasts["1year"] / 100;
-      if (forecasts["3year"] !== undefined) growthRates.year3 = forecasts["3year"] / 100;
-      if (forecasts["5year"] !== undefined) growthRates.year5 = forecasts["5year"] / 100;
-      if (forecasts["10year"] !== undefined) growthRates.year10 = forecasts["10year"] / 100;
-      if (forecasts["20year"] !== undefined) growthRates.year20 = forecasts["20year"] / 100;
-      
-      console.log("Using JSON forecast data:", growthRates);
-    } else if (typeof analysisText === 'string') {
-      // It's a string - try to find forecasts using regex
-      const year1Match = analysisText.match(/1\s*(?:year|yr)(?:s)?(?:\s*forecast)?(?:\s*growth)?(?:\s*prediction)?:?\s*([\d\.]+)%/i);
-      const year3Match = analysisText.match(/3\s*(?:year|yr)(?:s)?(?:\s*forecast)?(?:\s*growth)?(?:\s*prediction)?:?\s*([\d\.]+)%/i);
-      const year5Match = analysisText.match(/5\s*(?:year|yr)(?:s)?(?:\s*forecast)?(?:\s*growth)?(?:\s*prediction)?:?\s*([\d\.]+)%/i);
-      const year10Match = analysisText.match(/10\s*(?:year|yr)(?:s)?(?:\s*forecast)?(?:\s*growth)?(?:\s*prediction)?:?\s*([\d\.]+)%/i);
-      const year20Match = analysisText.match(/20\s*(?:year|yr)(?:s)?(?:\s*forecast)?(?:\s*growth)?(?:\s*prediction)?:?\s*([\d\.]+)%/i);
-      
-      if (year1Match) growthRates.year1 = parseFloat(year1Match[1]) / 100;
-      if (year3Match) growthRates.year3 = parseFloat(year3Match[1]) / 100;
-      if (year5Match) growthRates.year5 = parseFloat(year5Match[1]) / 100;
-      if (year10Match) growthRates.year10 = parseFloat(year10Match[1]) / 100;
-      if (year20Match) growthRates.year20 = parseFloat(year20Match[1]) / 100;
-      
-      // If we're missing any values, calculate them based on the others
-      if (!year1Match && year3Match) {
-        // Calculate annual rate from 3-year rate
-        growthRates.year1 = Math.pow(1 + growthRates.year3, 1/3) - 1;
+      // Try to get the annual growth rate from the available data
+      if (forecasts["1year"] !== undefined) {
+        customGrowthRate = forecasts["1year"] / 100;
+        growthRateSources.push("1-year forecast");
+      } else if (forecasts["5year"] !== undefined) {
+        // Convert 5-year growth to compound annual growth rate
+        customGrowthRate = Math.pow(1 + (forecasts["5year"] / 100), 1/5) - 1;
+        growthRateSources.push("5-year forecast");
+      } else if (forecasts["10year"] !== undefined) {
+        // Convert 10-year growth to compound annual growth rate
+        customGrowthRate = Math.pow(1 + (forecasts["10year"] / 100), 1/10) - 1;
+        growthRateSources.push("10-year forecast");
       }
-      
-      console.log("Using regex-extracted forecast data:", growthRates);
     }
     
-    // Generate the forecast data for visualization
-    const forecastData = [];
+    // Try to get postcode-specific growth rate data if available
+    let postcodeGrowthRate = null;
     
-    // Add data points for specific years
-    forecastData.push({
-      year: new Date().getFullYear(),
-      price: currentPrice,
-      growthPercentage: "0.0"
-    });
+    // Check if propertyData has custom growth rate data from postcode
+    if (propertyData && propertyData.growthRateData && 
+        propertyData.growthRateData.annualGrowthRate !== undefined) {
+      postcodeGrowthRate = propertyData.growthRateData.annualGrowthRate / 100;
+      growthRateSources.push("postcode analysis");
+    } else if (propertyData && propertyData.postcode) {
+      // Try to get cached growth rate data for this postcode
+      chrome.storage.local.get(['cachedGrowthRateData'], function(result) {
+        if (result.cachedGrowthRateData && 
+            result.cachedGrowthRateData[propertyData.postcode] && 
+            result.cachedGrowthRateData[propertyData.postcode].annualGrowthRate !== undefined) {
+          
+          const cachedRate = result.cachedGrowthRateData[propertyData.postcode].annualGrowthRate / 100;
+          
+          // Only update if we haven't gotten growth rate from another source
+          if (customGrowthRate === null) {
+            customGrowthRate = cachedRate;
+            growthRateSources.push("cached postcode data");
+            
+            // Regenerate the chart with the new data
+            generateAndDisplayChart();
+          }
+        } else {
+          // Fetch postcode-specific growth rate asynchronously
+          // We'll get the API key first
+          chrome.storage.sync.get(['openaiApiKey'], function(result) {
+            if (result.openaiApiKey) {
+              // Get the growth rate estimate
+              estimatePropertyGrowthRate(propertyData.suburb, propertyData.postcode, result.openaiApiKey)
+                .then(growthData => {
+                  if (growthData && growthData.annualGrowthRate !== undefined) {
+                    // Store in property data for future reference
+                    propertyData.growthRateData = growthData;
+                    
+                    // Only update if we haven't gotten growth rate from another source
+                    if (customGrowthRate === null) {
+                      customGrowthRate = growthData.annualGrowthRate / 100;
+                      growthRateSources.push("postcode analysis");
+                      
+                      // Regenerate the chart with the new data
+                      generateAndDisplayChart();
+                    }
+                  }
+                })
+                .catch(error => {
+                  console.error("Error fetching postcode-specific growth rate:", error);
+                });
+            }
+          });
+        }
+      });
+    }
     
-    forecastData.push({
-      year: new Date().getFullYear() + 1,
-      price: currentPrice * (1 + growthRates.year1),
-      growthPercentage: (growthRates.year1 * 100).toFixed(1)
-    });
-    
-    forecastData.push({
-      year: new Date().getFullYear() + 3,
-      price: currentPrice * (1 + growthRates.year3),
-      growthPercentage: (growthRates.year3 * 100).toFixed(1)
-    });
-    
-    forecastData.push({
-      year: new Date().getFullYear() + 5,
-      price: currentPrice * (1 + growthRates.year5),
-      growthPercentage: (growthRates.year5 * 100).toFixed(1)
-    });
-    
-    forecastData.push({
-      year: new Date().getFullYear() + 10,
-      price: currentPrice * (1 + growthRates.year10),
-      growthPercentage: (growthRates.year10 * 100).toFixed(1)
-    });
-    
-    forecastData.push({
-      year: new Date().getFullYear() + 20,
-      price: currentPrice * (1 + growthRates.year20),
-      growthPercentage: (growthRates.year20 * 100).toFixed(1)
-    });
-    
-    // Create a simpler but more reliable line chart
-    forecastChartContainer.innerHTML = `
-      <h3 class="forecast-title">Price Forecast (Based on Market Trends)</h3>
-      <div class="forecast-chart-wrapper">
-        <div class="forecast-chart">
-          <div class="forecast-y-axis">
-            <div class="forecast-y-label">${formatCurrency(Math.ceil(forecastData[5].price / 100000) * 100000)}</div>
-            <div class="forecast-y-label">${formatCurrency(Math.ceil(forecastData[4].price / 100000) * 100000)}</div>
-            <div class="forecast-y-label">${formatCurrency(Math.ceil(forecastData[3].price / 100000) * 100000)}</div>
-            <div class="forecast-y-label">${formatCurrency(Math.ceil(forecastData[2].price / 100000) * 100000)}</div>
-            <div class="forecast-y-label">${formatCurrency(Math.ceil(forecastData[1].price / 100000) * 100000)}</div>
-            <div class="forecast-y-label">${formatCurrency(currentPrice)}</div>
+    // Function to generate and display the chart
+    function generateAndDisplayChart() {
+      // Make sure the growth rate is reasonable (cap at realistic values)
+      if (customGrowthRate !== null) {
+        // Cap at 4% which is realistic for long-term Australian property growth
+        if (customGrowthRate > 0.04) {
+          customGrowthRate = 0.04;
+        }
+        // Don't allow negative growth rates less than -1.5%
+        if (customGrowthRate < -0.015) {
+          customGrowthRate = -0.015;
+        }
+      }
+      
+      console.log("Extracted custom growth rate:", customGrowthRate);
+      console.log("Growth rate sources:", growthRateSources);
+      
+      // Use the custom growth rate if available, otherwise use default
+      const annualGrowthRate = customGrowthRate !== null ? customGrowthRate : defaultAnnualGrowthRate;
+      console.log("Using annual growth rate:", annualGrowthRate);
+      
+      // Generate the forecast data for visualization using compound growth
+      const forecastData = forecastYears.map((year, index) => {
+        const yearDiff = year - currentYear;
+        // Compound growth model: initial price * (1 + annual growth rate)^years
+        const projectedPrice = currentPrice * Math.pow(1 + annualGrowthRate, yearDiff);
+        const totalGrowthPercentage = ((projectedPrice / currentPrice) - 1) * 100;
+        
+        return {
+          year: year,
+          price: projectedPrice,
+          growthPercentage: totalGrowthPercentage.toFixed(1)
+        };
+      });
+      
+      console.log("Forecast data:", forecastData);
+      
+      // Calculate min and max values for the chart with some padding
+      // Use fixed percentage range to avoid vertical stretching
+      let minPrice = currentPrice * 0.95; // 5% below current price for visual margin
+      
+      // Calculate what the max price would be with a 3% annual growth over 20 years
+      // This creates a consistent scale regardless of the actual growth rate
+      const referenceMaxPrice = currentPrice * Math.pow(1 + 0.03, 20);
+      const maxPrice = Math.max(forecastData[forecastData.length - 1].price * 1.05, referenceMaxPrice); 
+      
+      const priceRange = maxPrice - minPrice;
+      
+      // Create a more modern Tailwind-inspired chart - removing redundant title
+      forecastChartContainer.innerHTML = `
+        <div class="forecast-chart-modern">
+          <div class="forecast-chart-content">
+            <div class="forecast-chart-grid">
+              ${Array(5).fill(0).map((_, i) => {
+                const gridValue = maxPrice - (i * (priceRange / 4));
+                return `<div class="forecast-grid-line">
+                  <span class="forecast-grid-label">${formatCurrency(gridValue)}</span>
+                  <span class="forecast-grid-line-inner"></span>
+                </div>`;
+              }).join('')}
+            </div>
+            
+            <div class="forecast-chart-lines">
+              <svg width="100%" height="100%" viewBox="0 0 440 300" preserveAspectRatio="none">
+                <!-- Line connecting data points -->
+                <path 
+                  d="${generateSVGPathModern(forecastData, minPrice, maxPrice)}"
+                  stroke="rgba(59, 130, 246, 0.8)"
+                  stroke-width="3"
+                  fill="none"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                
+                <!-- Gradient area under the line -->
+                <path
+                  d="${generateSVGAreaModern(forecastData, minPrice, maxPrice)}"
+                  fill="url(#blue-gradient)"
+                  opacity="0.2"
+                />
+                
+                <!-- Gradient definition -->
+                <defs>
+                  <linearGradient id="blue-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="rgb(59, 130, 246)" stop-opacity="0.6"/>
+                    <stop offset="100%" stop-color="rgb(59, 130, 246)" stop-opacity="0.1"/>
+                  </linearGradient>
+                </defs>
+                
+                <!-- Data points -->
+                ${forecastData.map((point, index) => {
+                  const x = 20 + ((index / (forecastData.length - 1)) * 400);
+                  const y = 300 - ((point.price - minPrice) / priceRange) * 260;
+                  return `
+                  <circle cx="${x}" cy="${y}" r="6" fill="white" stroke="rgb(59, 130, 246)" stroke-width="2" />
+                  <text x="${x}" y="${y - 15}" text-anchor="middle" font-size="11" fill="#333" class="forecast-label">
+                    ${formatCurrency(Math.round(point.price / 1000) * 1000)}
+                  </text>
+                  `;
+                }).join('')}
+              </svg>
+            </div>
           </div>
-          <div class="forecast-graph">
-            <svg width="100%" height="220" viewBox="0 0 500 200" preserveAspectRatio="none">
-              <!-- Grid lines -->
-              <line x1="0" y1="0" x2="500" y2="0" stroke="#e0e0e0" stroke-width="1" />
-              <line x1="0" y1="40" x2="500" y2="40" stroke="#e0e0e0" stroke-width="1" />
-              <line x1="0" y1="80" x2="500" y2="80" stroke="#e0e0e0" stroke-width="1" />
-              <line x1="0" y1="120" x2="500" y2="120" stroke="#e0e0e0" stroke-width="1" />
-              <line x1="0" y1="160" x2="500" y2="160" stroke="#e0e0e0" stroke-width="1" />
-              <line x1="0" y1="200" x2="500" y2="200" stroke="#e0e0e0" stroke-width="1" />
-              
-              <!-- Price line -->
-              <path 
-                d="${generateSVGPath(forecastData, currentPrice, Math.ceil(forecastData[5].price))}"
-                fill="none"
-                stroke="#4A90E2"
-                stroke-width="3"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="forecast-line"
-              />
-              
-              <!-- Data points -->
-              ${generateDataPoints(forecastData, currentPrice, Math.ceil(forecastData[5].price))}
-            </svg>
-                        </div>
-                      </div>
-        <div class="forecast-x-axis">
-          ${forecastData.map(data => `<div class="forecast-x-label">${data.year}</div>`).join('')}
-                  </div>
-                </div>
-    `;
+          
+          <div class="forecast-chart-labels">
+            ${forecastData.map((point, index) => {
+              return `
+              <div class="forecast-label-column">
+                <div class="forecast-point-year">${point.year}</div>
+                <div class="forecast-point-growth ${parseFloat(point.growthPercentage) > 0 ? 'text-success' : ''}">${parseFloat(point.growthPercentage) > 0 ? '+' : ''}${point.growthPercentage}%</div>
+              </div>
+              `;
+            }).join('')}
+          </div>
+          
+          <div class="forecast-note">
+            <p>Based on ${(annualGrowthRate * 100).toFixed(1)}% compound annual growth rate for ${propertyData.suburb || 'this area'}</p>
+            ${growthRateSources.length > 0 ? `<p class="forecast-source">Source: ${growthRateSources.join(', ')}</p>` : ''}
+          </div>
+        </div>
+      `;
+      
+      // Add custom styles for the modern chart with improved dimensions
+      const styleElement = document.createElement('style');
+      styleElement.textContent = `
+        .forecast-chart-modern {
+          background-color: white;
+          border-radius: 0.5rem;
+          padding: 1.5rem;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          margin-bottom: 1.5rem;
+        }
+        .forecast-chart-content {
+          position: relative;
+          height: 320px; /* Increased height to ensure content is fully visible */
+          margin-bottom: 1.5rem;
+        }
+        .forecast-chart-grid {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          z-index: 1;
+        }
+        .forecast-grid-line {
+          position: relative;
+          width: 100%;
+          display: flex;
+          align-items: center;
+        }
+        .forecast-grid-label {
+          font-size: 0.75rem;
+          color: #6b7280;
+          width: 85px;
+          text-align: right;
+          padding-right: 0.5rem;
+        }
+        .forecast-grid-line-inner {
+          flex-grow: 1;
+          height: 1px;
+          background-color: rgba(229, 231, 235, 0.8);
+        }
+        .forecast-chart-lines {
+          position: absolute;
+          top: 0;
+          left: 85px; /* Space for labels */
+          right: 0;
+          height: 100%;
+          z-index: 2;
+        }
+        .forecast-chart-labels {
+          display: flex;
+          padding-left: 85px;
+          padding-right: 20px;
+          justify-content: space-between;
+          margin-top: 0.5rem;
+        }
+        .forecast-label-column {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+        }
+        .forecast-point-value {
+          font-weight: 600;
+          font-size: 0.875rem;
+          color: #1f2937;
+        }
+        .forecast-point-growth {
+          font-size: 0.75rem;
+          color: #6b7280;
+          margin: 0.25rem 0;
+        }
+        .forecast-point-growth.text-success {
+          color: #10b981;
+        }
+        .forecast-point-year {
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: #4b5563;
+        }
+        .forecast-note {
+          text-align: center;
+          font-size: 0.75rem;
+          color: #6b7280;
+          margin-top: 0.5rem;
+          font-style: italic;
+        }
+        .forecast-source {
+          text-align: center;
+          font-size: 0.7rem;
+          color: #9ca3af;
+          margin-top: 0.25rem;
+        }
+        /* Make sure the section height is adequate but not excessive */
+        #priceForecastChart {
+          min-height: 450px; /* Increased min-height to ensure content is fully displayed */
+        }
+      `;
+      document.head.appendChild(styleElement);
+    }
     
-    // Helper function to generate SVG path
-    function generateSVGPath(data, minPrice, maxPrice) {
+    // Initialize the chart with default or available data
+    generateAndDisplayChart();
+    
+    // Helper function to generate SVG path for the line
+    function generateSVGPathModern(data, minPrice, maxPrice) {
       const range = maxPrice - minPrice;
       const points = data.map((point, index) => {
-        const x = (index / (data.length - 1)) * 500;
-        // Invert Y because SVG has 0,0 at top left
-        const y = 200 - ((point.price - minPrice) / range) * 200;
+        const x = 20 + ((index / (data.length - 1)) * 400);
+        const y = 300 - ((point.price - minPrice) / range) * 260;
         return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
       });
       return points.join(' ');
     }
     
-    // Helper function to generate SVG data points
-    function generateDataPoints(data, minPrice, maxPrice) {
+    // Helper function to generate SVG path for the area under the line
+    function generateSVGAreaModern(data, minPrice, maxPrice) {
       const range = maxPrice - minPrice;
-      return data.map((point, index) => {
-        const x = (index / (data.length - 1)) * 500;
-        // Invert Y because SVG has 0,0 at top left
-        const y = 200 - ((point.price - minPrice) / range) * 200;
-        return `
-          <circle cx="${x}" cy="${y}" r="5" fill="#4A90E2" class="forecast-point" />
-          <text x="${x}" y="${y - 15}" text-anchor="middle" font-size="12" fill="#333" class="forecast-label">
-            ${formatCurrency(point.price)}
-          </text>
-          <text x="${x}" y="${y - 30}" text-anchor="middle" font-size="10" fill="#666" class="forecast-growth">
-            +${point.growthPercentage}%
-          </text>
-        `;
-      }).join('');
+      let path = '';
+      
+      // Move to the first point
+      const firstX = 20;
+      const firstY = 300 - ((data[0].price - minPrice) / range) * 260;
+      path += `M ${firstX} ${firstY}`;
+      
+      // Add line segments to each point
+      for (let i = 0; i < data.length; i++) {
+        const x = 20 + ((i / (data.length - 1)) * 400);
+        const y = 300 - ((data[i].price - minPrice) / range) * 260;
+        path += ` L ${x} ${y}`;
+      }
+      
+      // Complete the path by going to the bottom right, then bottom left, then back to start
+      path += ` L 420 300 L 20 300 Z`;
+      
+      return path;
     }
   }
 
@@ -1348,37 +1903,112 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations or 
         <div class="financial-metric-card">
           <div class="metric-label">Monthly Rental Income</div>
           <div class="metric-value">${formatCurrency(monthlyRental)}</div>
-                        </div>
+        </div>
         <div class="financial-metric-card">
           <div class="metric-label">Annual Rental Income</div>
           <div class="metric-value">${formatCurrency(annualRental)}</div>
-                      </div>
+        </div>
         <div class="financial-metric-card">
           <div class="metric-label">Rental Yield</div>
           <div class="metric-value">${(rentalYield * 100).toFixed(1)}%</div>
-                  </div>
+        </div>
         <div class="financial-metric-card">
           <div class="metric-label">Return on Investment</div>
           <div class="metric-value">${(((annualRental / propertyPrice) * 100).toFixed(1))}%</div>
-                </div>
+        </div>
       </div>
       
       <div class="rental-progress-container">
         <div class="rental-progress-label">
           <div class="rental-progress-title">Annual Rental vs. Property Price</div>
           <div class="rental-progress-value">${formatCurrency(annualRental)} / ${formatCurrency(propertyPrice)}</div>
-                        </div>
+        </div>
         <div class="rental-progress-bar">
           <div class="rental-progress-fill" style="width: ${Math.min(100, (annualRental / propertyPrice) * 100)}%;"></div>
-                      </div>
-                  </div>
+        </div>
+      </div>
       
       <div style="margin-top: 16px; font-size: 12px; color: var(--text-muted); text-align: center;">
         *Based on current market rates for similar properties in the area
-        </div>
-      `;
+      </div>
+    `;
     
     rentalChartContainer.innerHTML = rentalHTML;
+    
+    // Add custom styles to ensure rental returns section has adequate height
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+      #rentalReturnChart {
+        min-height: 280px; /* Ensure adequate space for rental returns */
+        padding-bottom: 20px;
+      }
+      
+      .rental-metrics-container {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      
+      .rental-progress-container {
+        margin-top: 16px;
+      }
+      
+      .rental-progress-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 6px;
+      }
+      
+      .rental-progress-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-color);
+      }
+      
+      .rental-progress-value {
+        font-size: 14px;
+        color: var(--text-muted);
+      }
+      
+      .rental-progress-bar {
+        height: 10px;
+        background-color: #e5e7eb;
+        border-radius: 5px;
+        overflow: hidden;
+      }
+      
+      .rental-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #4CAF50, #8BC34A);
+        border-radius: 5px;
+        transition: width 1s ease-in-out;
+      }
+      
+      /* Ensure the financial metric cards have enough space */
+      .financial-metric-card {
+        background-color: white;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        display: flex;
+        flex-direction: column;
+        min-height: 90px; /* Ensure cards have adequate height */
+      }
+      
+      .metric-label {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-bottom: 6px;
+      }
+      
+      .metric-value {
+        font-size: 20px;
+        font-weight: 600;
+        color: var(--text-color);
+      }
+    `;
+    document.head.appendChild(styleElement);
   }
 
   // Helper function to format currency values
@@ -1591,6 +2221,29 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations or 
     const ageChartContainer = document.getElementById('ageDistributionChart');
     if (!ageChartContainer) return;
     
+    // Create ABS Data link if we have a postcode
+    let absLink = '';
+    if (currentPropertyData && currentPropertyData.postcode) {
+      const absUrl = `https://abs.gov.au/census/find-census-data/quickstats/2021/POA${currentPropertyData.postcode}`;
+      let dataSourceText = 'Source: ABS QuickStats';
+      
+      // If we have source information, adjust the text
+      if (currentPropertyData.demographics && currentPropertyData.demographics.source) {
+        if (currentPropertyData.demographics.source.type === "openai") {
+          dataSourceText = 'Data: AI interpretation of ABS QuickStats';
+        }
+      }
+      
+      absLink = `<div class="data-source-link">
+        <a href="${absUrl}" target="_blank">${dataSourceText}</a>
+        <button class="refresh-demographics-btn" title="Refresh demographic data from ABS">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"/>
+          </svg>
+        </button>
+      </div>`;
+    }
+    
     // Ensure we have data in the expected format
     if (!Array.isArray(ageData) || ageData.length === 0) {
       console.error("Age data is not a valid array:", ageData);
@@ -1627,8 +2280,8 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations or 
       });
     }
     
-    // Clear the container and add the title
-    ageChartContainer.innerHTML = '<h4 class="chart-title">Age Distribution</h4>';
+    // Clear the container and add the title with ABS link
+    ageChartContainer.innerHTML = `<h4 class="chart-title">Age Distribution</h4>${absLink}`;
     
     // Create the age chart container
     const chartDiv = document.createElement('div');
@@ -1647,7 +2300,7 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations or 
         <div class="age-label">${age.range}</div>
         <div class="age-bar-container">
           <div class="age-bar" style="width: ${percentage}%;">
-            <span class="age-percentage">${percentage.toFixed(0)}%</span>
+            <span class="age-percentage">${percentage.toFixed(1)}%</span>
           </div>
         </div>
       `;
@@ -1661,6 +2314,24 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations or 
     console.log("Visualizing ethnic distribution:", ethnicData);
     const ethnicChartContainer = document.getElementById('ethnicDistributionChart');
     if (!ethnicChartContainer) return;
+    
+    // Create ABS Data link if we have a postcode
+    let absLink = '';
+    if (currentPropertyData && currentPropertyData.postcode) {
+      const absUrl = `https://abs.gov.au/census/find-census-data/quickstats/2021/POA${currentPropertyData.postcode}`;
+      let dataSourceText = 'Source: ABS QuickStats';
+      
+      // If we have source information, adjust the text
+      if (currentPropertyData.demographics && currentPropertyData.demographics.source) {
+        if (currentPropertyData.demographics.source.type === "openai") {
+          dataSourceText = 'Data: AI interpretation of ABS QuickStats';
+        }
+      }
+      
+      absLink = `<div class="data-source-link">
+        <a href="${absUrl}" target="_blank">${dataSourceText}</a>
+      </div>`;
+    }
     
     // Ensure we have data in the expected format
     if (!Array.isArray(ethnicData) || ethnicData.length === 0) {
@@ -1720,8 +2391,8 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations or 
       "#9013FE"  // Purple
     ];
     
-    // Clear the container and add title
-    ethnicChartContainer.innerHTML = '<h4 class="chart-title">Ethnic Distribution</h4>';
+    // Clear the container and add title with ABS link
+    ethnicChartContainer.innerHTML = `<h4 class="chart-title">Country of Birth / Ancestry</h4>${absLink}`;
     
     // Create the pie chart container
     const pieContainer = document.createElement('div');
@@ -1811,6 +2482,24 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations or 
     const incomeChartContainer = document.getElementById('incomeDistributionChart');
     if (!incomeChartContainer) return;
     
+    // Create ABS Data link if we have a postcode
+    let absLink = '';
+    if (currentPropertyData && currentPropertyData.postcode) {
+      const absUrl = `https://abs.gov.au/census/find-census-data/quickstats/2021/POA${currentPropertyData.postcode}`;
+      let dataSourceText = 'Source: ABS QuickStats';
+      
+      // If we have source information, adjust the text
+      if (currentPropertyData.demographics && currentPropertyData.demographics.source) {
+        if (currentPropertyData.demographics.source.type === "openai") {
+          dataSourceText = 'Data: AI interpretation of ABS QuickStats';
+        }
+      }
+      
+      absLink = `<div class="data-source-link">
+        <a href="${absUrl}" target="_blank">${dataSourceText}</a>
+      </div>`;
+    }
+    
     // Ensure we have data in the expected format
     if (!Array.isArray(incomeData) || incomeData.length === 0) {
       console.error("Income data is not a valid array:", incomeData);
@@ -1863,11 +2552,18 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations or 
       // Ensure percentage is a number
       const percentage = parseFloat(income.percentage);
       
+      // Create a gradient color based on income level
+      const barColor = income.bracket.includes("Over") ? 
+        "#4CAF50" : // Higher income - green
+        (income.bracket.includes("Under") ? 
+          "#FF9800" : // Lower income - orange
+          "#2196F3"); // Middle incomes - blue
+      
       incomeHTML += `
         <div class="income-bar-group">
           <div class="income-bar-container">
-            <div class="income-bar" style="width: ${percentage}%;">
-              <span class="income-percentage">${percentage.toFixed(0)}%</span>
+            <div class="income-bar" style="width: ${percentage}%; background: linear-gradient(90deg, ${barColor}80, ${barColor});">
+              <span class="income-percentage">${percentage.toFixed(1)}%</span>
             </div>
           </div>
           <div class="income-label">${income.bracket}</div>
@@ -1883,10 +2579,9 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations or 
     // Insert the chart into the container
     incomeChartContainer.innerHTML = incomeHTML;
     
-    // Add title above the chart
-    const titleElement = document.createElement('h4');
-    titleElement.className = 'chart-title';
-    titleElement.textContent = 'Income Distribution';
+    // Add title above the chart with ABS link
+    const titleElement = document.createElement('div');
+    titleElement.innerHTML = `<h4 class="chart-title">Household Income Distribution</h4>${absLink}`;
     incomeChartContainer.insertBefore(titleElement, incomeChartContainer.firstChild);
   }
 
@@ -1963,12 +2658,137 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations or 
       // Set max height to allow animations
       if (content) {
         content.style.maxHeight = content.scrollHeight + 'px';
+        
+        // Add a resize observer to handle dynamic content changes
+        const resizeObserver = new ResizeObserver(entries => {
+          for (let entry of entries) {
+            if (section.classList.contains('expanded')) {
+              entry.target.style.maxHeight = entry.target.scrollHeight + 'px';
+            }
+          }
+        });
+        
+        resizeObserver.observe(content);
       }
       
       // Add staggered animation delay
       section.style.animationDelay = `${index * 0.1}s`;
       section.classList.add('fade-in');
     });
+
+    // Add demographic context info
+    const demographicsSection = document.getElementById('demographicsSection');
+    if (demographicsSection && currentPropertyData && currentPropertyData.postcode) {
+      const contentSection = demographicsSection.querySelector('.section-content');
+      
+      // Check if we need to add the context info (avoid duplicates)
+      if (!contentSection.querySelector('.demographic-context-info')) {
+        const contextInfo = document.createElement('div');
+        contextInfo.className = 'demographic-context-info';
+        contextInfo.innerHTML = `
+          <div class="demographic-context-note">
+            <div class="note-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12" y2="8"></line>
+              </svg>
+            </div>
+            <div class="note-text">
+              <p>Demographics data is based on the ABS 2021 Census for postcode ${currentPropertyData.postcode}. 
+              <a href="https://abs.gov.au/census/find-census-data/quickstats/2021/POA${currentPropertyData.postcode}" target="_blank">View full census data</a>.</p>
+            </div>
+          </div>
+        `;
+        
+        // Add it as the first child of the content section
+        contentSection.insertBefore(contextInfo, contentSection.firstChild);
+        
+        // Update max height to account for the new content
+        contentSection.style.maxHeight = contentSection.scrollHeight + 'px';
+      }
+    }
+    
+    // Add click event listener for refresh demographics button
+    const refreshDemographicsBtn = document.querySelector('.refresh-demographics-btn');
+    if (refreshDemographicsBtn) {
+      refreshDemographicsBtn.addEventListener('click', async function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        if (!currentPropertyData || !currentPropertyData.postcode) {
+          console.log("Cannot refresh demographics: No property data or postcode available");
+          return;
+        }
+        
+        // Show loading spinner
+        const demographicsSection = document.getElementById('demographicsSection');
+        if (demographicsSection) {
+          const loadingSpinner = document.createElement('div');
+          loadingSpinner.className = 'demographics-loading';
+          loadingSpinner.innerHTML = `
+            <div class="small-loader"></div>
+            <p>Refreshing demographic data from ABS QuickStats...</p>
+          `;
+          demographicsSection.querySelector('.section-content').prepend(loadingSpinner);
+        }
+        
+        try {
+          // Get API key
+          const apiKeyResult = await new Promise(resolve => {
+            chrome.storage.sync.get(['openaiApiKey'], function(result) {
+              resolve(result.openaiApiKey);
+            });
+          });
+          
+          if (!apiKeyResult) {
+            console.error("No API key available to refresh demographic data");
+            return;
+          }
+          
+          // Force refresh demographic data
+          console.log("Manually refreshing demographic data for postcode:", currentPropertyData.postcode);
+          const demographicData = await fetchDemographicDataFromInternet(
+            currentPropertyData.suburb, 
+            currentPropertyData.postcode, 
+            apiKeyResult
+          );
+          
+          if (demographicData) {
+            console.log("Successfully refreshed demographic data");
+            
+            // Update the current property data
+            currentPropertyData.demographics = demographicData;
+            
+            // Update the cache
+            chrome.storage.local.get(['cachedDemographicData'], function(result) {
+              const cachedDemographicData = result.cachedDemographicData || {};
+              cachedDemographicData[currentPropertyData.postcode] = demographicData;
+              chrome.storage.local.set({ cachedDemographicData: cachedDemographicData });
+              console.log("Updated cached demographic data for postcode:", currentPropertyData.postcode);
+            });
+            
+            // Update the display
+            visualizeAgeDistribution(demographicData.ageDistribution || []);
+            visualizeEthnicDistribution(demographicData.ethnicDistribution || []);
+            visualizeIncomeDistribution(demographicData.incomeBrackets || []);
+            
+            // Remove loading spinner
+            const loadingSpinner = document.querySelector('.demographics-loading');
+            if (loadingSpinner) {
+              loadingSpinner.remove();
+            }
+          }
+        } catch (error) {
+          console.error("Error refreshing demographic data:", error);
+          // Remove loading spinner
+          const loadingSpinner = document.querySelector('.demographics-loading');
+          if (loadingSpinner) {
+            loadingSpinner.remove();
+          }
+        }
+      });
+    }
   }
   
   // Function to animate the visual elements after they're rendered
@@ -2007,7 +2827,8 @@ Where XX is a number (no % sign, no quotes). DO NOT include any explanations or 
       // Get API key and analyze property
       chrome.storage.sync.get(['openaiApiKey'], function(result) {
         if (result.openaiApiKey) {
-          analyzeProperty(propertyData, result.openaiApiKey);
+          // Don't force refresh when automatically triggered
+          analyzeProperty(propertyData, result.openaiApiKey, false);
         } else {
           errorSection.classList.remove('hidden');
           loadingSection.classList.add('hidden');

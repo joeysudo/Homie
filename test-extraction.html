@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Land Size Extraction Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #4285F4;
+    }
+    .test-output {
+      background-color: #f5f5f5;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 20px;
+    }
+    .test-info {
+      margin-bottom: 20px;
+      padding: 10px;
+      background-color: #e8f5e9;
+      border-left: 4px solid #4caf50;
+    }
+    .debug-info {
+      margin-top: 30px;
+      padding: 10px;
+      background-color: #f5f5f5;
+      border: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Land Size Extraction Test</h1>
+    
+    <div class="test-info">
+      <p>This page tests the land size extraction functionality for the Homie extension. It simulates the HTML structure of realestate.com.au property pages and verifies that the extraction function can correctly identify and extract the land size information.</p>
+    </div>
+    
+    <div class="test-output" id="testOutput">
+      <h3>Test Results:</h3>
+      <p>Running tests...</p>
+    </div>
+    
+    <div class="debug-info">
+      <h3>HTML Structure Being Tested:</h3>
+      <pre id="htmlStructure"></pre>
+      
+      <h3>ArgonautExchange Data Structure:</h3>
+      <pre id="jsonStructure"></pre>
+    </div>
+  </div>
+
+  <script>
+    // Function to escape HTML for display
+    function escapeHTML(html) {
+      return html
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+    
+    // Function to log test output
+    function logTestOutput(message) {
+      const testOutput = document.getElementById('testOutput');
+      testOutput.innerHTML += `<p>${message}</p>`;
+    }
+    
+    window.addEventListener('load', function() {
+      // Show the HTML structure being tested
+      const htmlStructure = document.getElementById('htmlStructure');
+      
+      // Extract the mock HTML from the test script
+      fetch('test-extraction.js')
+        .then(response => response.text())
+        .then(scriptText => {
+          const mockHtmlMatch = scriptText.match(/document\.body\.innerHTML\s*=\s*`([\s\S]+?)`/);
+          if (mockHtmlMatch && mockHtmlMatch[1]) {
+            htmlStructure.textContent = mockHtmlMatch[1].trim();
+          }
+          
+          const jsonMatch = scriptText.match(/window\.ArgonautExchange\s*=\s*(\{[\s\S]+?\});/);
+          if (jsonMatch && jsonMatch[1]) {
+            document.getElementById('jsonStructure').textContent = jsonMatch[1].trim();
+          }
+        });
+      
+      // Run the test
+      logTestOutput("Starting land size extraction test...");
+    });
+  </script>
+  
+  <!-- Include the test script -->
+  <script src="test-extraction.js"></script>
+</body>
+</html> 
