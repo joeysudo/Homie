@@ -3106,3 +3106,55 @@ button {
 .note-text a:hover {
   text-decoration: underline;
 }
+
+/* Perspective-based pros and cons */
+.perspective-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.perspective-section {
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.perspective-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: var(--text-color);
+}
+
+.perspective-title svg {
+  color: var(--primary-color);
+}
+
+.pros-container h4, .cons-container h4 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+
+/* Update pros and cons lists to look more professional */
+.pros-cons-list li {
+  margin-bottom: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-color);
+}
+
+.pros-container .pros-cons-list li:before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%234285F4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+.cons-container .pros-cons-list li:before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23EA4335' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='18' y1='6' x2='6' y2='18'%3E%3C/line%3E%3Cline x1='6' y1='6' x2='18' y2='18'%3E%3C/line%3E%3C/svg%3E");
+}

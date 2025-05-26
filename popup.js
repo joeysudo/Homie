@@ -306,6 +306,31 @@ document.addEventListener('DOMContentLoaded', function() {
             // Set force refresh flag to true since user clicked "analyze property" button
             const forceRefresh = true;
             
+            // Clear the cache for this property when forcing a refresh
+            if (forceRefresh && response.propertyData && response.propertyData.url) {
+              const propertyUrl = response.propertyData.url;
+              
+              // Clear the cached analysis
+              chrome.storage.local.get(['cachedPropertyAnalyses'], function(result) {
+                if (result.cachedPropertyAnalyses && result.cachedPropertyAnalyses[propertyUrl]) {
+                  const cachedPropertyAnalyses = result.cachedPropertyAnalyses;
+                  delete cachedPropertyAnalyses[propertyUrl];
+                  chrome.storage.local.set({ cachedPropertyAnalyses: cachedPropertyAnalyses });
+                  console.log("Cleared cached analysis for property:", propertyUrl);
+                }
+              });
+              
+              // Clear the cached visualization data
+              chrome.storage.local.get(['cachedVisualizationData'], function(result) {
+                if (result.cachedVisualizationData && result.cachedVisualizationData[propertyUrl]) {
+                  const cachedVisualizationData = result.cachedVisualizationData;
+                  delete cachedVisualizationData[propertyUrl];
+                  chrome.storage.local.set({ cachedVisualizationData: cachedVisualizationData });
+                  console.log("Cleared cached visualization data for property:", propertyUrl);
+                }
+              });
+            }
+            
             // Get analysis
             analyzeProperty(response.propertyData, result.openaiApiKey, forceRefresh);
           }
@@ -595,8 +620,43 @@ Where annualGrowthRate is a realistic percentage (e.g., 2.3 for 2.3%) representi
           currentPropertyData = propertyData;
           currentPropertyAnalysis = cachedResult.analysis;
           
+          // Check if we have cached visualization data
+          const cachedVisualizationData = await new Promise(resolve => {
+            chrome.storage.local.get(['cachedVisualizationData'], function(result) {
+              if (result.cachedVisualizationData && 
+                  result.cachedVisualizationData[propertyUrl]) {
+                resolve(result.cachedVisualizationData[propertyUrl]);
+              } else {
+                resolve(null);
+              }
+            });
+          });
+          
           // Format and display the analysis
           formatAnalysis(cachedResult.analysis);
+          
+          // If we have cached visualization data, use it to directly update the visualization containers
+          if (cachedVisualizationData) {
+            console.log("Using cached visualization data");
+            
+            // Update age distribution chart
+            const ageChartContainer = document.getElementById('ageDistributionChart');
+            if (ageChartContainer && cachedVisualizationData.ageDistributionHTML) {
+              ageChartContainer.innerHTML = cachedVisualizationData.ageDistributionHTML;
+            }
+            
+            // Update income distribution chart
+            const incomeChartContainer = document.getElementById('incomeDistributionChart');
+            if (incomeChartContainer && cachedVisualizationData.incomeDistributionHTML) {
+              incomeChartContainer.innerHTML = cachedVisualizationData.incomeDistributionHTML;
+            }
+            
+            // Update ethnic distribution chart
+            const ethnicChartContainer = document.getElementById('ethnicDistributionChart');
+            if (ethnicChartContainer && cachedVisualizationData.ethnicDistributionHTML) {
+              ethnicChartContainer.innerHTML = cachedVisualizationData.ethnicDistributionHTML;
+            }
+          }
           
           // Display the formatted analysis
           propertyAnalysisSection.classList.remove('hidden');
@@ -833,15 +893,27 @@ Where annualGrowthRate is a realistic percentage (e.g., 2.3 for 2.3%) representi
     // Store the raw property data for later use
     currentPropertyData = propertyData;
     
-    const prompt = `As a sophisticated real estate investment advisor, analyze this property as an investment opportunity:
+    const prompt = `As a sophisticated real estate investment advisor, analyze this property comprehensively from both lifestyle and investment perspectives:
 
 ${promptDetails.join('\n')}
 
 Provide all data as accurate, realistic, and valid numbers based on the latest available information. Format your entire response as a valid JSON object with the following structure:
 
 {
-  "pros": ["...", "...", "..."],
-  "cons": ["...", "...", "..."],
+  "pros": [
+    "Brief advantage point combining lifestyle and investment value",
+    "Point about school zone quality and impact on both livability and property value",
+    "Point about neighborhood safety and amenities",
+    "Point about rental demand and potential tenants",
+    "Point about capital growth potential"
+  ],
+  "cons": [
+    "Brief consideration about potential downsides", 
+    "Point about any livability challenges",
+    "Point about investment risks or limitations",
+    "Point about neighborhood concerns if applicable",
+    "Point about property-specific issues"
+  ],
   "financialAnalysis": {
     "estimatedROI": XX,
     "paybackPeriod": XX,
@@ -901,7 +973,15 @@ Provide all data as accurate, realistic, and valid numbers based on the latest a
 
 Where XX is a number (no % sign, no quotes). DO NOT include any explanations or text outside the JSON structure.
 
-For price forecasts, please ensure that growth rates are conservative and realistic for the Australian property market. Long-term property growth rates typically range from 2-4% annually, with some areas underperforming and others outperforming based on local factors.`;
+For price forecasts, please ensure that growth rates are conservative and realistic for the Australian property market. Long-term property growth rates typically range from 2-4% annually, with some areas underperforming and others outperforming based on local factors.
+
+When creating pros and cons:
+1. Keep each point concise and to the point (15 words or less)
+2. Include a balanced mix of lifestyle factors (schools, safety, amenities) and investment aspects (rental demand, yield potential)
+3. For school zones, mention quality and desirability
+4. Include points about the ease of finding renters and tenant demographics
+5. Mention safety and living quality of the neighborhood
+6. For cons, use "consideration" framing rather than purely negative language`;
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -915,7 +995,7 @@ For price forecasts, please ensure that growth rates are conservative and realis
           messages: [
             {
               role: "system",
-              content: "You are a sophisticated real estate investment analyst providing property investment analysis in strict JSON format. Your response MUST be a valid, parseable JSON object without any text outside the JSON structure. Include detailed numerical values for all metrics.\n\nFor demographic data:\n- Age distribution should use consistent age ranges (0-18, 19-35, 36-50, 51-65, 66+)\n- Ethnic distribution should include major groups (Australian, European, Asian, etc.) with realistic percentages\n- Income brackets should follow standard ranges (Under $50k, $50k-$100k, $100k-$150k, $150k-$200k, Over $200k)\n\nFor financial analysis:\n- priceAssessment should be a percentage value indicating how much the property is over/under market value (positive = overvalued, negative = undervalued)\n\nAll percentages should be provided as numbers without the % symbol. Do not include any explanations or text that would break JSON parsing."
+              content: "You are a sophisticated real estate investment analyst providing property investment analysis in strict JSON format. Your response MUST be a valid, parseable JSON object without any text outside the JSON structure. Include detailed numerical values for all metrics.\n\nFor pros and cons:\n- Keep points concise and direct (15 words or less per point)\n- Include both lifestyle considerations (schools, safety) and investment factors (rental demand, growth)\n- Focus on the property's most important features and considerations\n- Use precise language with specific details about the property\n- For cons, frame as 'considerations' rather than purely negative aspects\n\nFor demographic data:\n- Age distribution should use consistent age ranges (0-18, 19-35, 36-50, 51-65, 66+)\n- Ethnic distribution should include major groups (Australian, European, Asian, etc.) with realistic percentages\n- Income brackets should follow standard ranges (Under $50k, $50k-$100k, $100k-$150k, $150k-$200k, Over $200k)\n\nFor financial analysis:\n- priceAssessment should be a percentage value indicating how much the property is over/under market value (positive = overvalued, negative = undervalued)\n\nAll percentages should be provided as numbers without the % symbol. Do not include any explanations or text that would break JSON parsing."
             },
             {
               role: "user",
@@ -1033,22 +1113,29 @@ For price forecasts, please ensure that growth rates are conservative and realis
     analysisResults.innerHTML = "";
 
     if (parsed && typeof parsed === 'object') {
-      // --- Render Pros/Cons ---
+      // --- Render Pros/Cons with combined perspectives ---
       const prosList = document.getElementById('prosList');
       if (prosList && Array.isArray(parsed.pros)) {
+        // Only show a maximum of 5 pros
+        const limitedPros = parsed.pros.slice(0, 5);
+        
         prosList.innerHTML = `
-          <h4>Pros</h4>
+          <h4>Key Advantages</h4>
           <ul class="pros-cons-list">
-            ${parsed.pros.map(pro => `<li>${pro}</li>`).join('')}
+            ${limitedPros.map(pro => `<li>${pro}</li>`).join('')}
           </ul>
         `;
       }
+      
       const consList = document.getElementById('consList');
       if (consList && Array.isArray(parsed.cons)) {
+        // Only show a maximum of 5 cons
+        const limitedCons = parsed.cons.slice(0, 5);
+        
         consList.innerHTML = `
-          <h4>Cons</h4>
+          <h4>Considerations</h4>
           <ul class="pros-cons-list">
-            ${parsed.cons.map(con => `<li>${con}</li>`).join('')}
+            ${limitedCons.map(con => `<li>${con}</li>`).join('')}
           </ul>
         `;
       }
@@ -1139,13 +1226,17 @@ For price forecasts, please ensure that growth rates are conservative and realis
         const pros = extractList(analysisText, 'Pros');
         const cons = extractList(analysisText, 'Cons');
         
-        // Render pros and cons
+        // Limit to 5 items for each list
+        const limitedPros = pros.slice(0, 5);
+        const limitedCons = cons.slice(0, 5);
+        
+        // Render pros and cons with combined format
         const prosList = document.getElementById('prosList');
         if (prosList) {
           prosList.innerHTML = `
-            <h4>Pros</h4>
+            <h4>Key Advantages</h4>
             <ul class="pros-cons-list">
-              ${pros.map(pro => `<li>${pro}</li>`).join('')}
+              ${limitedPros.map(pro => `<li>${pro}</li>`).join('')}
             </ul>
           `;
         }
@@ -1153,9 +1244,9 @@ For price forecasts, please ensure that growth rates are conservative and realis
         const consList = document.getElementById('consList');
         if (consList) {
           consList.innerHTML = `
-            <h4>Cons</h4>
+            <h4>Considerations</h4>
             <ul class="pros-cons-list">
-              ${cons.map(con => `<li>${con}</li>`).join('')}
+              ${limitedCons.map(con => `<li>${con}</li>`).join('')}
             </ul>
           `;
         }
@@ -2281,7 +2372,48 @@ For price forecasts, please ensure that growth rates are conservative and realis
     }
     
     // Clear the container and add the title with ABS link
-    ageChartContainer.innerHTML = `<h4 class="chart-title">Age Distribution</h4>${absLink}`;
+    ageChartContainer.innerHTML = `
+      <style>
+        .age-bar-container {
+          background-color: #f0f0f0;
+          border-radius: 4px;
+          overflow: hidden;
+          height: 24px;
+          flex: 1;
+        }
+        .age-bar {
+          height: 100%;
+          background: linear-gradient(90deg, #4A90E2, #73B4FF);
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          padding-right: 10px;
+          color: white;
+          font-weight: 600;
+          font-size: 12px;
+        }
+        .age-chart {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          margin: 20px 0;
+        }
+        .age-bar-group {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .age-label {
+          width: 60px;
+          font-size: 13px;
+          text-align: right;
+          color: #333;
+          font-weight: 500;
+        }
+      </style>
+      <h4 class="chart-title">Age Distribution</h4>${absLink}
+    `;
     
     // Create the age chart container
     const chartDiv = document.createElement('div');
@@ -2299,14 +2431,15 @@ For price forecasts, please ensure that growth rates are conservative and realis
       barGroupDiv.innerHTML = `
         <div class="age-label">${age.range}</div>
         <div class="age-bar-container">
-          <div class="age-bar" style="width: ${percentage}%;">
-            <span class="age-percentage">${percentage.toFixed(1)}%</span>
-          </div>
+          <div class="age-bar" style="width: ${percentage}%;">${percentage.toFixed(1)}%</div>
         </div>
       `;
       
       chartDiv.appendChild(barGroupDiv);
     });
+    
+    // Save the HTML content to cache if we have property data
+    saveVisualizationToCache('ageDistributionHTML', ageChartContainer.innerHTML);
   }
 
   // Function to visualize ethnic distribution
@@ -2474,6 +2607,11 @@ For price forecasts, please ensure that growth rates are conservative and realis
     });
     
     ethnicChartContainer.appendChild(legendContainer);
+    
+    // Save the HTML content to cache after completing the visualization
+    setTimeout(() => {
+      saveVisualizationToCache('ethnicDistributionHTML', ethnicChartContainer.innerHTML);
+    }, 100);
   }
   
   // Function to visualize income distribution
@@ -2543,6 +2681,45 @@ For price forecasts, please ensure that growth rates are conservative and realis
     
     // Create the income distribution chart HTML
     let incomeHTML = `
+      <style>
+        .income-chart {
+          margin: 20px 0;
+        }
+        .income-bars {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .income-bar-group {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+        .income-bar-container {
+          height: 25px;
+          background-color: #f0f0f0;
+          border-radius: 4px;
+          overflow: hidden;
+        }
+        .income-bar {
+          height: 100%;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          padding-right: 10px;
+          color: white;
+          font-weight: 600;
+          font-size: 13px;
+        }
+        .income-label {
+          font-size: 13px;
+          color: #333;
+          font-weight: 500;
+        }
+      </style>
+      <h4 class="chart-title">Household Income Distribution</h4>
+      ${absLink}
       <div class="income-chart">
         <div class="income-bars">
     `;
@@ -2563,7 +2740,7 @@ For price forecasts, please ensure that growth rates are conservative and realis
         <div class="income-bar-group">
           <div class="income-bar-container">
             <div class="income-bar" style="width: ${percentage}%; background: linear-gradient(90deg, ${barColor}80, ${barColor});">
-              <span class="income-percentage">${percentage.toFixed(1)}%</span>
+              ${percentage.toFixed(1)}%
             </div>
           </div>
           <div class="income-label">${income.bracket}</div>
@@ -2579,10 +2756,8 @@ For price forecasts, please ensure that growth rates are conservative and realis
     // Insert the chart into the container
     incomeChartContainer.innerHTML = incomeHTML;
     
-    // Add title above the chart with ABS link
-    const titleElement = document.createElement('div');
-    titleElement.innerHTML = `<h4 class="chart-title">Household Income Distribution</h4>${absLink}`;
-    incomeChartContainer.insertBefore(titleElement, incomeChartContainer.firstChild);
+    // Save the HTML content to cache
+    saveVisualizationToCache('incomeDistributionHTML', incomeHTML);
   }
 
   // Function to set up modern UI interactions
@@ -2793,20 +2968,13 @@ For price forecasts, please ensure that growth rates are conservative and realis
   
   // Function to animate the visual elements after they're rendered
   function animateVisualElements() {
-    // Animate chart bars
-    const bars = document.querySelectorAll('.age-bar, .forecast-bar, .income-bar');
-    bars.forEach((bar, index) => {
-      // Use a custom property for animation
-      const height = bar.style.height || '0%';
-      bar.style.height = '0%';
-      
-      // Delay animation for a staggered effect
-      setTimeout(() => {
-        bar.style.height = height;
-      }, 100 + (index * 50));
-    });
+    // Remove the previous style element if it exists
+    const oldStyle = document.getElementById('chart-animations');
+    if (oldStyle) {
+      oldStyle.remove();
+    }
     
-    // Animate progress bars
+    // Animate progress bars (keeping this part)
     const progressBars = document.querySelectorAll('.rental-progress-fill');
     progressBars.forEach((bar, index) => {
       const width = bar.style.width || '0%';
@@ -2934,5 +3102,28 @@ For price forecasts, please ensure that growth rates are conservative and realis
         <div class="catchment-details">${schoolData.catchmentZone}</div>
       `;
     }
+  }
+
+  // Helper function to save visualization HTML to cache
+  function saveVisualizationToCache(key, html) {
+    if (!currentPropertyData || !currentPropertyData.url) return;
+    
+    const propertyUrl = currentPropertyData.url;
+    
+    chrome.storage.local.get(['cachedVisualizationData'], function(result) {
+      const cachedVisualizationData = result.cachedVisualizationData || {};
+      
+      // Initialize cache entry for this property if it doesn't exist
+      if (!cachedVisualizationData[propertyUrl]) {
+        cachedVisualizationData[propertyUrl] = {};
+      }
+      
+      // Save this visualization HTML
+      cachedVisualizationData[propertyUrl][key] = html;
+      
+      // Update the cache
+      chrome.storage.local.set({ cachedVisualizationData: cachedVisualizationData });
+      console.log(`Cached ${key} visualization for property: ${propertyUrl}`);
+    });
   }
 }); 
