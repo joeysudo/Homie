@@ -3,7 +3,7 @@
   "name": "Homira",
   "version": "1.0",
   "description": "AI-powered real estate analysis for properties on realestate.com.au",
-  "permissions": ["activeTab", "storage", "scripting", "contextMenus", "windows"],
+  "permissions": ["activeTab", "storage", "contextMenus", "windows"],
   "host_permissions": ["https://www.realestate.com.au/*"],
   "action": {
     "default_popup": "popup.html",
